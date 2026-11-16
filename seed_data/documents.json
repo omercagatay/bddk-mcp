@@ -12,7 +12,9 @@
     "extracted_at": 1775667192.2185438,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 191492
+    "file_size": 191492,
+    "source_fingerprint": "file-sha256:ac7e0b7eb07dbef6adf45015e2b34f45da3a54240edc6b9d5b0708f19231a8fa",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1029",
@@ -27,7 +29,9 @@
     "extracted_at": 1775667192.5088239,
     "extraction_method": "manual_pdf",
     "total_pages": 1,
-    "file_size": 271684
+    "file_size": 271684,
+    "source_fingerprint": "file-sha256:0b9758dc75586f0aad58bcd1ea179908cd5cff00378bad1f138644726af2fe42",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1030",
@@ -42,7 +46,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 2,
-    "file_size": 374810
+    "file_size": 374810,
+    "source_fingerprint": "file-sha256:5a8a166a3a0e298eaadfd758bdb2f3ce0899e1e9d227ab081d104bb817ae1d1e",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1037",
@@ -57,7 +63,9 @@
     "extracted_at": 1775667191.781204,
     "extraction_method": "manual_pdf",
     "total_pages": 1,
-    "file_size": 281374
+    "file_size": 281374,
+    "source_fingerprint": "file-sha256:a48c9a6239de43bb77355c69befe4922ebb9d4f2d0fda53000798431370db726",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1038",
@@ -72,7 +80,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 310225
+    "file_size": 310225,
+    "source_fingerprint": "file-sha256:8629049b1bebfc966e6e5de8a050526efe0cd279dd00585dec38351dd369b81e",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1039",
@@ -87,7 +97,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "manual_pdf",
     "total_pages": 1,
-    "file_size": 290597
+    "file_size": 290597,
+    "source_fingerprint": "file-sha256:9284849ae7254f9e7ef34c34f89f49db89ac493fcdbc641189aa4fc07ab3a8eb",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1040",
@@ -102,7 +114,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 19,
-    "file_size": 269363
+    "file_size": 269363,
+    "source_fingerprint": "file-sha256:c668f6214b6efc94d7f2e7318faf10669d918176578ad6c42cd3ac437a44a125",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1041",
@@ -117,7 +131,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 31,
-    "file_size": 919158
+    "file_size": 919158,
+    "source_fingerprint": "file-sha256:cad7b797a34ca7ca57f3f6ad0ab7dae39c705d79e830369db4962f63cf6d8bd4",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1043",
@@ -132,7 +148,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "markitdown",
     "total_pages": 87,
-    "file_size": 1042198
+    "file_size": 1042198,
+    "source_fingerprint": "file-sha256:dc9db2a57a3b797357b00c54c7c54040e8c5781070d805cd3f49dd50270c188d",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1045",
@@ -147,7 +165,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "markitdown",
     "total_pages": 39,
-    "file_size": 623286
+    "file_size": 623286,
+    "source_fingerprint": "file-sha256:24116934625f0ec9625075a1526067b7e08c7052255557d4c0d33d6cb23854b0",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1047",
@@ -162,7 +182,9 @@
     "extracted_at": 1775667194.5245328,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 346792
+    "file_size": 346792,
+    "source_fingerprint": "file-sha256:b0b0136ba8121edbcb300afd2b5db8a92f4f841df4a6452550bfc20be2dc8291",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "105",
@@ -177,7 +199,9 @@
     "extracted_at": 1775667167.787071,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 21031
+    "file_size": 21031,
+    "source_fingerprint": "file-sha256:05e2471a0ed35b4bf338ca8b95b04a048b9163875c2c5f2f0ddb4857cfdeef37",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1051",
@@ -192,7 +216,9 @@
     "extracted_at": 1775667190.620435,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 347078
+    "file_size": 347078,
+    "source_fingerprint": "file-sha256:c3ab7865bbd801401fd533cb531127f651a2ba1f6b3332501ae9364c4342c7f2",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1059",
@@ -207,7 +233,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 2,
-    "file_size": 290065
+    "file_size": 290065,
+    "source_fingerprint": "file-sha256:3b2f8038b183a1364c784fbe351ad3bc5aa6e8148d74e44190b3530d136acf56",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1060",
@@ -222,7 +250,9 @@
     "extracted_at": 1775667190.4160535,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 271396
+    "file_size": 271396,
+    "source_fingerprint": "file-sha256:8c3ccaea9ded6cd2c0cdb5062f58ca57de9e64e356b588c8813e6c6a686b4b31",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1071",
@@ -237,7 +267,9 @@
     "extracted_at": 1775667191.2134247,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 199835
+    "file_size": 199835,
+    "source_fingerprint": "file-sha256:432b657cffe206f0c2f260960a04270efbb51a84bede5a0c730cbc08b868cbff",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1084",
@@ -252,7 +284,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "manual_pdf",
     "total_pages": 2,
-    "file_size": 217503
+    "file_size": 217503,
+    "source_fingerprint": "file-sha256:fd83b065ad22772c07d171a1353e9a2b696c4f5de986b528713e1c5bb03ce859",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1085",
@@ -267,7 +301,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 291625
+    "file_size": 291625,
+    "source_fingerprint": "file-sha256:830741bc9b2b065a7b176911ed9d63848db2cf8ee32ade54682229922df823bd",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1086",
@@ -282,7 +318,9 @@
     "extracted_at": 1775667188.6980586,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 291386
+    "file_size": 291386,
+    "source_fingerprint": "file-sha256:4fdc3c9134626d50062bc1b5cc642c19524e72c9581f937d8fd1edb1308f1a16",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1087",
@@ -297,7 +335,9 @@
     "extracted_at": 1775667128.636172,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 272668
+    "file_size": 272668,
+    "source_fingerprint": "file-sha256:9e63a36e33b68252226b320a8f14ab030283fd8f6cf7b6040955ab64595462aa",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1091",
@@ -312,7 +352,9 @@
     "extracted_at": 1775667188.5049822,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 190809
+    "file_size": 190809,
+    "source_fingerprint": "file-sha256:945e4f09fd2e6d0e6ecb519b3593fa2d59575dffb245c58374bb7cf6538ddd10",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1099",
@@ -327,7 +369,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 293233
+    "file_size": 293233,
+    "source_fingerprint": "file-sha256:7af72d7bb7cf0d57eba46bc5e2fb6c13cfa46dfc43951bd8c5fbae9986408ea9",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "110",
@@ -342,7 +386,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 26487
+    "file_size": 26487,
+    "source_fingerprint": "file-sha256:2e986383237495dd3daeb964cb5d01572809db33b9441b1bd73c0a275b1bd5e5",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1109",
@@ -357,7 +403,9 @@
     "extracted_at": 1775667189.93585,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 280593
+    "file_size": 280593,
+    "source_fingerprint": "file-sha256:e54b8340982af525249921e0700ad33a26bfa9cf72c06140104380f8d40ae9c4",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1121",
@@ -372,7 +420,9 @@
     "extracted_at": 1775667188.0442553,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 273836
+    "file_size": 273836,
+    "source_fingerprint": "file-sha256:977e0ed25e14c1e6888de306ad53e59836dcf7081b76856f48adae88f89cece1",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1125",
@@ -387,7 +437,9 @@
     "extracted_at": 1775667187.2183633,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 275408
+    "file_size": 275408,
+    "source_fingerprint": "file-sha256:d08df3fd3da5c8d4ba547fe2cc7e252ca8f7abb29612669ed2047d958adc4979",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1126",
@@ -402,7 +454,9 @@
     "extracted_at": 1775667187.3460572,
     "extraction_method": "manual_pdf",
     "total_pages": 1,
-    "file_size": 292201
+    "file_size": 292201,
+    "source_fingerprint": "file-sha256:260dc5cf76585c7951acacafb1567a0e8a674354f69b90bd7f5fd79356b5c8d2",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1127",
@@ -417,7 +471,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 274678
+    "file_size": 274678,
+    "source_fingerprint": "file-sha256:a1e7dc945a510059e2d7d5950227c5eb612e5a8fb951e3e4ff3a0b937fa0ab9f",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1131",
@@ -432,7 +488,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 4,
-    "file_size": 888938
+    "file_size": 888938,
+    "source_fingerprint": "file-sha256:84473b9bf1a9d3f8e4f8f2b81f2ea0147d6218f5ef1a3488390cc6bccba3204c",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1135",
@@ -447,7 +505,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 17,
-    "file_size": 601458
+    "file_size": 601458,
+    "source_fingerprint": "file-sha256:5c1514cfa77eb2a37956d014b350e02e634e088bd15395fc5766698f5860d6f7",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1138",
@@ -462,7 +522,9 @@
     "extracted_at": 1775667186.5733244,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 193926
+    "file_size": 193926,
+    "source_fingerprint": "file-sha256:f8681ac30f2b676b2eabdfdd5f70c0676b5f7dc2a518390ef7c7d6d6d36e7ee6",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1147",
@@ -477,7 +539,9 @@
     "extracted_at": 1775667186.497268,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 451266
+    "file_size": 451266,
+    "source_fingerprint": "file-sha256:748008505d15d3a9e8e08fad243ec80eddef0ce01511e19daeb0322878ac6d83",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1155",
@@ -492,7 +556,9 @@
     "extracted_at": 1775667185.5002918,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 214111
+    "file_size": 214111,
+    "source_fingerprint": "file-sha256:653aca1792b2ad5984d4e0c795515ee81a208967a0a653a154ab30faf7147f54",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1157",
@@ -507,7 +573,9 @@
     "extracted_at": 1775667185.3490674,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 210677
+    "file_size": 210677,
+    "source_fingerprint": "file-sha256:c9775af5d7c669d6ac8b34dc7aff5d696a5e333851793e881a1cb60dfa5787ab",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1159",
@@ -522,7 +590,9 @@
     "extracted_at": 1775667185.8933463,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 196757
+    "file_size": 196757,
+    "source_fingerprint": "file-sha256:9b8aef6139f88963a45cab5a8a432ab791d7f8d08802a5b17a40086c9cfd45e7",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1161",
@@ -537,7 +607,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 2,
-    "file_size": 225473
+    "file_size": 225473,
+    "source_fingerprint": "file-sha256:c23c8cf13455abe7c41f39cccad4e05b30b1525e0059f714fdd369ea0bd7de52",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1162",
@@ -552,7 +624,9 @@
     "extracted_at": 1775667185.661,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 203542
+    "file_size": 203542,
+    "source_fingerprint": "file-sha256:25e9b4d308e37ef51e791ddcf98cbed34cfa974592f061cf1f20cb5773316a83",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1163",
@@ -567,7 +641,9 @@
     "extracted_at": 1775667185.089253,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 280555
+    "file_size": 280555,
+    "source_fingerprint": "file-sha256:a1906d4f2391509680beb9d0292c552fac94934e0be41451cba4c2b96f751a91",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1164",
@@ -582,7 +658,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 569144
+    "file_size": 569144,
+    "source_fingerprint": "file-sha256:576428218ff01cbd7528f26258654ac191f40ebf1c9f219ab981745e639f022e",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1166",
@@ -597,7 +675,9 @@
     "extracted_at": 1775667184.7489922,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 192770
+    "file_size": 192770,
+    "source_fingerprint": "file-sha256:db068c7c7e8400597de5f79b04d95872fe2636a2c98b933e15ef2b1b34a02546",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1167",
@@ -612,7 +692,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 10,
-    "file_size": 727320
+    "file_size": 727320,
+    "source_fingerprint": "file-sha256:4c1d4a7b242a977b9897e4a1f4e1936c7fea49f049619ae2815f13303ad6c13e",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1171",
@@ -627,7 +709,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 10,
-    "file_size": 517962
+    "file_size": 517962,
+    "source_fingerprint": "file-sha256:3b32b1f36a62a3b24b7fcaca8a91d5a06da332fcbfaedfcba2519dde456157e8",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1175",
@@ -642,7 +726,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 214242
+    "file_size": 214242,
+    "source_fingerprint": "file-sha256:1673974bc5888cbcbb08d71689c6118facb502f5b294c803ed3f5d577c883913",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1176",
@@ -657,7 +743,9 @@
     "extracted_at": 1775667123.7769654,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 274591
+    "file_size": 274591,
+    "source_fingerprint": "file-sha256:70be09296d10820ef4888fc3cf92b55cb5cadd863944c3fd43f00656344aefc2",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1184",
@@ -672,7 +760,9 @@
     "extracted_at": 1775667183.8007867,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 192116
+    "file_size": 192116,
+    "source_fingerprint": "file-sha256:658e709ca8de48090431511a027b1f241220836b79657c0276419dfdf2edadee",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1185",
@@ -687,7 +777,9 @@
     "extracted_at": 1775667183.677866,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 199655
+    "file_size": 199655,
+    "source_fingerprint": "file-sha256:4e8ba0550a9e49a59b6b8fa16ec6d17d3bfa5902edf4b4004d288f59c51d28e3",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1190",
@@ -702,7 +794,9 @@
     "extracted_at": 1775667183.5165446,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 185761
+    "file_size": 185761,
+    "source_fingerprint": "file-sha256:b17f803984fea6fe9c3fdb608edd7b561e25901eaf10aca89d16ef94d54fec22",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1191",
@@ -717,7 +811,9 @@
     "extracted_at": 1775667183.9136167,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 212223
+    "file_size": 212223,
+    "source_fingerprint": "file-sha256:02459477c68c45f275c6740c41039e9b106443384a57318ef56735227fa163ec",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1192",
@@ -732,7 +828,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 195775
+    "file_size": 195775,
+    "source_fingerprint": "file-sha256:53531713e71a4db8e9a1d5a46159dd1d2fa30db208e44b41467ca05a3c659ee9",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1193",
@@ -747,7 +845,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 2,
-    "file_size": 205246
+    "file_size": 205246,
+    "source_fingerprint": "file-sha256:71f64149fe7a1ba3ff4c386692bdc54b53b7a4232cd4191ed1005f4b4cabf524",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1207",
@@ -762,7 +862,9 @@
     "extracted_at": 1775667183.396684,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 197367
+    "file_size": 197367,
+    "source_fingerprint": "file-sha256:7aaaa57096b45615528e31e8827e89ed2c45f8d523bc420c351dd1baab80cea7",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1208",
@@ -777,7 +879,9 @@
     "extracted_at": 1775667182.8522766,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 188042
+    "file_size": 188042,
+    "source_fingerprint": "file-sha256:637d767094242122cd8b8f4adeb2f0109258304dd0a0416c054a5ba11c677808",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1214",
@@ -792,7 +896,9 @@
     "extracted_at": 1775667182.6972291,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 188573
+    "file_size": 188573,
+    "source_fingerprint": "file-sha256:dab6d784e9881f48785a81004149bccbb77a256ae59620cf1465b70c71c9b1ae",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1216",
@@ -807,7 +913,9 @@
     "extracted_at": 1775667182.44951,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 367236
+    "file_size": 367236,
+    "source_fingerprint": "file-sha256:086cf12d0173fe6e81cfbdff67e0bb0e1a26d16a4a1cf4d08f85d49466924f9a",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1218",
@@ -822,7 +930,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 212099
+    "file_size": 212099,
+    "source_fingerprint": "file-sha256:50c792d4ff0220c48a3ee378c5a427452ad670feb0ea658c73f43565e882660a",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1220",
@@ -837,7 +947,9 @@
     "extracted_at": 1775667182.000136,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 191314
+    "file_size": 191314,
+    "source_fingerprint": "file-sha256:be4190297ceb3d5881afa3e69321e80705b03675126d368babb1e6bdcdf7eb4f",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1224",
@@ -852,7 +964,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 29500
+    "file_size": 29500,
+    "source_fingerprint": "file-sha256:719f1914923f81529688f46d68f8412bf20464325944a7b43539460ee6fb33d5",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1225",
@@ -867,7 +981,9 @@
     "extracted_at": 1778580797.2028162,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 28763
+    "file_size": 28763,
+    "source_fingerprint": "file-sha256:0d64061baf46db0785397ee23d65dd238360a55fc5353a7d236078596b0b8696",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1226",
@@ -882,7 +998,9 @@
     "extracted_at": 1778580797.2028162,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 68217
+    "file_size": 68217,
+    "source_fingerprint": "file-sha256:e16f19f46d3f31da12d08e8e4046b7ca446c0a962db06d2e0e19d33b31bb3b2a",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1230",
@@ -897,7 +1015,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 19,
-    "file_size": 436715
+    "file_size": 436715,
+    "source_fingerprint": "file-sha256:813b44bc467094db47054a426ae214d8988a78d04858c24e572f45b20d81b9ed",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1240",
@@ -912,7 +1032,9 @@
     "extracted_at": 1778580797.2028162,
     "extraction_method": "manual_pdf+manual_latex",
     "total_pages": 9,
-    "file_size": 332369
+    "file_size": 332369,
+    "source_fingerprint": "file-sha256:41e39d4026f5757f88c81a52604e425fa9f66f93b0afafa5beeaddd3c705eec4",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1249",
@@ -927,7 +1049,9 @@
     "extracted_at": 1775667181.8568912,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 109392
+    "file_size": 109392,
+    "source_fingerprint": "file-sha256:98723b95bb3cdd38ce68690f27062eb1a5a0f4edb021b2b0cd4177cd9b308e7c",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1253",
@@ -942,7 +1066,9 @@
     "extracted_at": 1775667181.7146828,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 110172
+    "file_size": 110172,
+    "source_fingerprint": "file-sha256:adf33667f06f4eb846d3429d59113d8d7c7177d0631971a9f8c7d1e7f764b0fd",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1254",
@@ -957,7 +1083,9 @@
     "extracted_at": 1775667185.188181,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 92672
+    "file_size": 92672,
+    "source_fingerprint": "file-sha256:e73b3cf6880aeaf3cd95850edc9b522eba5df0248a1c926cc19b7a55adf7c5f7",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1255",
@@ -972,7 +1100,9 @@
     "extracted_at": 1775667185.7334242,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 108129
+    "file_size": 108129,
+    "source_fingerprint": "file-sha256:dab1fe1686c62906c4eeb0c9c41ed2a414405c6eb6749b0a4e51c8da0e6ef3e2",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1259",
@@ -987,7 +1117,9 @@
     "extracted_at": 1775667182.641152,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 117740
+    "file_size": 117740,
+    "source_fingerprint": "file-sha256:2bad6f8321fe90c2a643b12b3d7f97fe772be33c937936eb51dcb7538f468593",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "126",
@@ -1002,7 +1134,9 @@
     "extracted_at": 1775667165.7519696,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 22516
+    "file_size": 22516,
+    "source_fingerprint": "file-sha256:7864dff7309eac0fa3ee78ade2510cda4d443dfe60fb8139f7a9e833f928a49a",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1260",
@@ -1017,7 +1151,9 @@
     "extracted_at": 1775667183.2055657,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 107226
+    "file_size": 107226,
+    "source_fingerprint": "file-sha256:9fdc4fc808b696a8376710cd2b46086deda268ee343abc2f7e0a726e1b0d41d1",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1263",
@@ -1032,7 +1168,9 @@
     "extracted_at": 1775667181.5589921,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 118787
+    "file_size": 118787,
+    "source_fingerprint": "file-sha256:8fcf207409e4de6a2ba6cc842e976cd275c5d195220351a293d515b08e671d1a",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1268",
@@ -1047,7 +1185,9 @@
     "extracted_at": 1775667181.263072,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 108723
+    "file_size": 108723,
+    "source_fingerprint": "file-sha256:0fc4b3c4370fcb1bc4ca1c96ea5b0c3735ae9e9d8f234f909214d066fe5ba961",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1270",
@@ -1062,7 +1202,9 @@
     "extracted_at": 1775667181.3691208,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 115923
+    "file_size": 115923,
+    "source_fingerprint": "file-sha256:7e8d9f0d9bb3cd82d230570e1037562a94a35ce0f3ae10aab570d5240f0e3da5",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1278",
@@ -1077,7 +1219,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 105822
+    "file_size": 105822,
+    "source_fingerprint": "file-sha256:842144bcaf10b9c98f06b8b1f05bd14e5623a47c426f8c08895069cdb438187c",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1279",
@@ -1092,7 +1236,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 122237
+    "file_size": 122237,
+    "source_fingerprint": "file-sha256:4af3bf2f053d56bcfcd90e8174361fef23a5c296b0b9898025c4fa9b4b79a8c1",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1280",
@@ -1107,7 +1253,9 @@
     "extracted_at": 1775667179.1937096,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 108400
+    "file_size": 108400,
+    "source_fingerprint": "file-sha256:57dc3f4ae1c165af912e59661e71ce8715d8daaf41a50736a81fb730f66c0eb0",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1282",
@@ -1122,7 +1270,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 5,
-    "file_size": 97612
+    "file_size": 97612,
+    "source_fingerprint": "file-sha256:82af3ec8a63daa8f7849d0168ce97c825e73e7fc849f01bcaa400e1a149ca331",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1284",
@@ -1137,7 +1287,9 @@
     "extracted_at": 1775667179.1021612,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 107925
+    "file_size": 107925,
+    "source_fingerprint": "file-sha256:73c689b3b15bf9cc833166e2f226562bb08319857b5e76fdf23e3ca5c676c87c",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1285",
@@ -1152,7 +1304,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 13,
-    "file_size": 494898
+    "file_size": 494898,
+    "source_fingerprint": "file-sha256:148040a518163a2f732336e318aeea9873a731f4f8beee7d5895cea6f0d7c615",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1286",
@@ -1167,7 +1321,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 3,
-    "file_size": 65552
+    "file_size": 65552,
+    "source_fingerprint": "file-sha256:3c24ee2181d9c3726bb0a8a7e79c916641450bc5da2f88b3c703e29d3bba3937",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1287",
@@ -1182,7 +1338,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "manual_pdf+manual_latex",
     "total_pages": 17,
-    "file_size": 231273
+    "file_size": 231273,
+    "source_fingerprint": "file-sha256:5bf57c5883c6a7b56b495356fdd7456923f6f653e4604ed04ec04f6bac19091b",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1288",
@@ -1197,7 +1355,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout+manual_latex",
     "total_pages": 16,
-    "file_size": 214025
+    "file_size": 214025,
+    "source_fingerprint": "file-sha256:61459b6e626471f09f18fee4afe2aae211b91fd9a295c83319245638af56290d",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "129",
@@ -1212,7 +1372,9 @@
     "extracted_at": 1775667165.3408632,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 19725
+    "file_size": 19725,
+    "source_fingerprint": "file-sha256:783855030fb5b3cac230eec393900edf87bd27ad51f02ba63e735af1daef96e7",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1290",
@@ -1227,7 +1389,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 12,
-    "file_size": 174590
+    "file_size": 174590,
+    "source_fingerprint": "file-sha256:b8c0b22ca2c45cca7262a57c65d87d2f234614df5d26917b5ca70bea87aa0f2d",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1291",
@@ -1242,7 +1406,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 10,
-    "file_size": 160581
+    "file_size": 160581,
+    "source_fingerprint": "file-sha256:32d83381dab32bd9b32dfe04a4cbddaee98e5379015477b1194601d0774ec5b5",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1293",
@@ -1257,7 +1423,9 @@
     "extracted_at": 1775667186.3626502,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 109068
+    "file_size": 109068,
+    "source_fingerprint": "file-sha256:140deb7b0f82b0da0d842f7c594981466215fc6acd152d0c0d5f8af07a8959c3",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1296",
@@ -1272,7 +1440,9 @@
     "extracted_at": 1792151049.931247,
     "extraction_method": "markitdown+manual_latex",
     "total_pages": 2,
-    "file_size": 80010
+    "file_size": 80010,
+    "source_fingerprint": "file-sha256:512d6a6d93ff93bdf84c565a15cd9f137b9f1944c82933678b2e5f1981659dc2",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1301",
@@ -1287,7 +1457,9 @@
     "extracted_at": 1775667178.435614,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 110863
+    "file_size": 110863,
+    "source_fingerprint": "file-sha256:161d03f3380e30abe01f6cc4316db4ba6fb5f6e7a079097f7323eec695bb7100",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1305",
@@ -1302,7 +1474,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "markitdown+manual_latex",
     "total_pages": 36,
-    "file_size": 667279
+    "file_size": 667279,
+    "source_fingerprint": "file-sha256:44928bdde6309ad48559c18960e45638c50fae30b25c56675edf0796da6de065",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1310",
@@ -1317,7 +1491,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 2,
-    "file_size": 127573
+    "file_size": 127573,
+    "source_fingerprint": "file-sha256:fe4ab2c28c3d10cee75901373bb3dd993383f71c69b0e1a786717809bf740459",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1311",
@@ -1332,7 +1508,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 8,
-    "file_size": 416894
+    "file_size": 416894,
+    "source_fingerprint": "file-sha256:449b892ebefb4638757fbae946b750e7d3a2046db767ea5ee57f758792402f01",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1312",
@@ -1347,7 +1525,9 @@
     "extracted_at": 1778579950.7871542,
     "extraction_method": "pdftotext_layout+manual_latex",
     "total_pages": 19,
-    "file_size": 276061
+    "file_size": 276061,
+    "source_fingerprint": "file-sha256:6683abb409964bdcf259446cc8a8cf4443a39fe5d1e0b87f2854e557f180fa5b",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1313",
@@ -1362,7 +1542,9 @@
     "extracted_at": 1778579950.7871542,
     "extraction_method": "markitdown+manual_latex",
     "total_pages": 38,
-    "file_size": 498730
+    "file_size": 498730,
+    "source_fingerprint": "file-sha256:80539790b6f43bb63350512bbca5a7d7536db51e977f14247898b2907e7a9f61",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1314",
@@ -1377,7 +1559,9 @@
     "extracted_at": 1778579950.7871542,
     "extraction_method": "markitdown+manual_latex",
     "total_pages": 16,
-    "file_size": 262025
+    "file_size": 262025,
+    "source_fingerprint": "file-sha256:1902053aaebf6d2f1ed4d941f645b3e94b95abfc873018631277052cb0a46f57",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1315",
@@ -1392,7 +1576,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 2,
-    "file_size": 61372
+    "file_size": 61372,
+    "source_fingerprint": "file-sha256:1a3e398597cda03406e1dd46cfc3afa3a44c74f37f2f32916658ac3f39cfaebf",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1316",
@@ -1407,7 +1593,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 2,
-    "file_size": 49710
+    "file_size": 49710,
+    "source_fingerprint": "file-sha256:d4d91242312fd8288baa94d3c1a0124f0f946b70aa196c8232f727c6dcfd25c6",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1317",
@@ -1422,7 +1610,9 @@
     "extracted_at": 1775667177.904789,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 25924
+    "file_size": 25924,
+    "source_fingerprint": "file-sha256:fa502d4fdf70a4b70d8f5d7bb92343008e10761035c02169ec7761e30e062d34",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1318",
@@ -1437,7 +1627,9 @@
     "extracted_at": 1775667178.4922862,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 23811
+    "file_size": 23811,
+    "source_fingerprint": "file-sha256:4ec0645319d5b851bbb0871ca16e253a5e251c5bc2c749a08aeea72a56c3828f",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1321",
@@ -1452,7 +1644,9 @@
     "extracted_at": 1775667177.7730105,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 74795
+    "file_size": 74795,
+    "source_fingerprint": "file-sha256:fdcd32a11fe3f024cb1438b0c7a103f567b8244d011003eaca40463a9213a34b",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1323",
@@ -1467,7 +1661,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 4,
-    "file_size": 141903
+    "file_size": 141903,
+    "source_fingerprint": "file-sha256:96b016a7cf5683ff7de815b54977a6e97cdac3a6908a6c274b16984bfa7ad268",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1324",
@@ -1482,7 +1678,9 @@
     "extracted_at": 1775667179.0360718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 112245
+    "file_size": 112245,
+    "source_fingerprint": "file-sha256:b4616474aa16718800f87e9694babca5204c92c200563d4add465a8717d1b3e9",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1325",
@@ -1497,7 +1695,9 @@
     "extracted_at": 1775667177.4959652,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 93035
+    "file_size": 93035,
+    "source_fingerprint": "file-sha256:1ee0461149b0ac0779e830b63835c1412ca7196393d4bc6bd8685c6b4c0b73c8",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1326",
@@ -1512,7 +1712,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 102322
+    "file_size": 102322,
+    "source_fingerprint": "file-sha256:d1f3b304d779d2b2ec476c177a708a9b444963800f1ee88f8b8f0130aad907dc",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1327",
@@ -1527,7 +1729,9 @@
     "extracted_at": 1775667177.2434876,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 138980
+    "file_size": 138980,
+    "source_fingerprint": "file-sha256:785d8b3b499f54a059930d031dcc7a598b6d2234f0871025d4176e4946802543",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1334",
@@ -1542,7 +1746,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "markitdown",
     "total_pages": 107,
-    "file_size": 1304768
+    "file_size": 1304768,
+    "source_fingerprint": "file-sha256:97f13e99c6e552605997a52287b5e2696ba426650dfdd77732ecb458c67b560a",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "1336",
@@ -1557,7 +1763,9 @@
     "extracted_at": 1794759116.6634972,
     "extraction_method": "pdftotext_layout+manual_latex",
     "total_pages": 28,
-    "file_size": 418068
+    "file_size": 418068,
+    "source_fingerprint": "file-sha256:e2264d977eb817e572f331a39ee77015c340e641c4f87211eef5f75edb98f6a7",
+    "source_fingerprint_at": 1794696802.0865088
   },
   {
     "document_id": "1337",
@@ -1572,7 +1780,9 @@
     "extracted_at": 1794719962.3367562,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 92149
+    "file_size": 92149,
+    "source_fingerprint": "file-sha256:52838aa21c1b1dbb9fd3add16e82f3c5729311f417543803e7ac91ba7d3daad7",
+    "source_fingerprint_at": 1794696801.7574642
   },
   {
     "document_id": "1339",
@@ -1587,7 +1797,9 @@
     "extracted_at": 1794719988.8732398,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 102602
+    "file_size": 102602,
+    "source_fingerprint": "file-sha256:7e69cbc9d72821abdd89373eb5cf86ac50c0de37581b70d8bf2daa8a643481e6",
+    "source_fingerprint_at": 1794696802.0143673
   },
   {
     "document_id": "1340",
@@ -1602,7 +1814,9 @@
     "extracted_at": 1794755787.9634254,
     "extraction_method": "pdftotext_layout",
     "total_pages": 12,
-    "file_size": 242558
+    "file_size": 242558,
+    "source_fingerprint": "file-sha256:c2aea3065efe72192b5d0112e6ab852a86700fb87f37efac33d73431e0d9453f",
+    "source_fingerprint_at": 1794696801.9771297
   },
   {
     "document_id": "1341",
@@ -1617,7 +1831,9 @@
     "extracted_at": 1794759145.4031482,
     "extraction_method": "pdftotext_layout+manual_latex",
     "total_pages": 32,
-    "file_size": 466732
+    "file_size": 466732,
+    "source_fingerprint": "file-sha256:55919f36a7d381ede124df02d79c10eb83651cafc4d4f93f93cc1c6d3b70f165",
+    "source_fingerprint_at": 1794696801.917724
   },
   {
     "document_id": "1342",
@@ -1632,7 +1848,9 @@
     "extracted_at": 1794719975.424781,
     "extraction_method": "pdftotext_layout",
     "total_pages": 2,
-    "file_size": 197504
+    "file_size": 197504,
+    "source_fingerprint": "file-sha256:05f727ffdfe87c2179f6fadbff771fa44a89f6b8f7ff06061b7b9044c6781b03",
+    "source_fingerprint_at": 1794696801.8381848
   },
   {
     "document_id": "1343",
@@ -1647,7 +1865,9 @@
     "extracted_at": 1794719949.4460294,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 263859
+    "file_size": 263859,
+    "source_fingerprint": "file-sha256:40c59db2b5fb9b847a05b2f9597e8d65d69ede7ad19a176746a01991617c91bb",
+    "source_fingerprint_at": 1794696801.709677
   },
   {
     "document_id": "1344",
@@ -1662,7 +1882,9 @@
     "extracted_at": 1794719936.1322527,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 198221
+    "file_size": 198221,
+    "source_fingerprint": "file-sha256:8011eb40fd011d8c6f4247a11f823bda10c733a85517349dea4d3581e548cf21",
+    "source_fingerprint_at": 1794696801.6454806
   },
   {
     "document_id": "1346",
@@ -1677,7 +1899,9 @@
     "extracted_at": 1794719923.3127985,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 28264
+    "file_size": 28264,
+    "source_fingerprint": "file-sha256:2ff9fadf6158e7a0bfb45b301c5e6a7f691dcd2ac24a351c3cb4dccc71f5f8ca",
+    "source_fingerprint_at": 1794696801.5905108
   },
   {
     "document_id": "1348",
@@ -1692,7 +1916,9 @@
     "extracted_at": 1794719910.5839624,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 119621
+    "file_size": 119621,
+    "source_fingerprint": "file-sha256:f85375088c352e61bc477e5e95c3c5717cd7b6a16595a7eb90286d83b398b33a",
+    "source_fingerprint_at": 1794696801.5331793
   },
   {
     "document_id": "1349",
@@ -1707,7 +1933,9 @@
     "extracted_at": 1794719897.6247237,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 108139
+    "file_size": 108139,
+    "source_fingerprint": "file-sha256:feaa0e6244c1a7ea8b04d49dd770345faef239447bf3c9de6986f744f7a2f157",
+    "source_fingerprint_at": 1794696801.484383
   },
   {
     "document_id": "16",
@@ -1722,7 +1950,9 @@
     "extracted_at": 1794755763.9641109,
     "extraction_method": "pdftotext_layout",
     "total_pages": 2,
-    "file_size": 294648
+    "file_size": 294648,
+    "source_fingerprint": "file-sha256:e0ac62a72cf207ce4bc75127c83ca462b76a1c113edff61e65b3b62a4ef39a45",
+    "source_fingerprint_at": 1794696802.141769
   },
   {
     "document_id": "162",
@@ -1737,7 +1967,9 @@
     "extracted_at": 1775667162.4867582,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 22389
+    "file_size": 22389,
+    "source_fingerprint": "file-sha256:067d87dd0495e1132d15821ffc576e753be834394680871cfb6a76ad3f890607",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "168",
@@ -1752,7 +1984,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 35263
+    "file_size": 35263,
+    "source_fingerprint": "file-sha256:5a9ed70c55e7c2cff923db75732a6acab5df8c317cd9f20077b221eb25938f2a",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "169",
@@ -1767,7 +2001,9 @@
     "extracted_at": 1775667160.5001533,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 22037
+    "file_size": 22037,
+    "source_fingerprint": "file-sha256:ffb4d247c73141433363104d60eba8b6df453b6ad412d86b22e04c5c25440601",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "170",
@@ -1782,7 +2018,9 @@
     "extracted_at": 1775667161.903306,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 21897
+    "file_size": 21897,
+    "source_fingerprint": "file-sha256:ecf195c83f776325c74ad605886d1942f003b65781753129039a15a1b415b13e",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "174",
@@ -1797,7 +2035,9 @@
     "extracted_at": 1775667159.791874,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 24055
+    "file_size": 24055,
+    "source_fingerprint": "file-sha256:9510327bb9c6d578f364db34da05d940b9d3ca084816e8f385c511ef00f5a65c",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "177",
@@ -1812,7 +2052,9 @@
     "extracted_at": 1775667159.5079784,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 129317
+    "file_size": 129317,
+    "source_fingerprint": "file-sha256:5e2c265f2bc5399994686ac5feb1f6f50e2191607a8b0247c0f100081eb6989f",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "182",
@@ -1827,7 +2069,9 @@
     "extracted_at": 1775667159.2977326,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 116437
+    "file_size": 116437,
+    "source_fingerprint": "file-sha256:bd9cf1371811aef762fbc7026720603b37d2aeef88f604c61c7123b077a1b5b6",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "183",
@@ -1842,7 +2086,9 @@
     "extracted_at": 1775667158.6582785,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 120426
+    "file_size": 120426,
+    "source_fingerprint": "file-sha256:1b6965b41ad7add0d9aac88d0d9aa02fe58964cc6c53b1b3526eeb31ef8632ab",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "188",
@@ -1857,7 +2103,9 @@
     "extracted_at": 1775667158.0873413,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 21686
+    "file_size": 21686,
+    "source_fingerprint": "file-sha256:4a832bd7004cec788cbb941635b23e2eda48ae496c9f8a834a026bc62ff13d75",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "189",
@@ -1872,7 +2120,9 @@
     "extracted_at": 1775667157.9858305,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 103304
+    "file_size": 103304,
+    "source_fingerprint": "file-sha256:60e99d4a4fd9a99d9ac4bccd38120715fdd3459f8df2a1601920a2aef3b269a7",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "191",
@@ -1887,7 +2137,9 @@
     "extracted_at": 1775667157.7116284,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 22082
+    "file_size": 22082,
+    "source_fingerprint": "file-sha256:f4fcc3e584c0c4e0c6f587ff2a30ef7ae37ce0675328f624387c6545f0823213",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "194",
@@ -1902,7 +2154,9 @@
     "extracted_at": 1775667158.9104328,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 23232
+    "file_size": 23232,
+    "source_fingerprint": "file-sha256:472c402bb2b6032fe9fb0b504d0b2ce87b21890f5b3519e416ff9c1a514c43b9",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "196",
@@ -1917,7 +2171,9 @@
     "extracted_at": 1775667157.201194,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 23588
+    "file_size": 23588,
+    "source_fingerprint": "file-sha256:4dc54c87274e09cfaa49f4aea8effa13c7c8f93105b25215c4c461594f7d315d",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "203",
@@ -1932,7 +2188,9 @@
     "extracted_at": 1775667156.8611176,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 102200
+    "file_size": 102200,
+    "source_fingerprint": "file-sha256:2e9c08de9f4b486ee90bb3453cde4d096b969a2151504af006ea5d50a22c4c5b",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "214",
@@ -1947,7 +2205,9 @@
     "extracted_at": 1775667155.141573,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 23759
+    "file_size": 23759,
+    "source_fingerprint": "file-sha256:5e87f11bc6ef336db4449d434e1a5a128a2ced0b6857327d99406d013e7a3343",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "218",
@@ -1962,7 +2222,9 @@
     "extracted_at": 1775667155.2088406,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 21828
+    "file_size": 21828,
+    "source_fingerprint": "file-sha256:40caaeeda53ffc4271ff722756742aba8cb0d7040415194ec00f4e83796e8227",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "220",
@@ -1977,7 +2239,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 2,
-    "file_size": 47692
+    "file_size": 47692,
+    "source_fingerprint": "file-sha256:b4ffefeab0c64b1d23f2f9b0b9e4d1b0ac20d703e5c34d438c33e7a1ef6d56cb",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "226",
@@ -1992,7 +2256,9 @@
     "extracted_at": 1775667154.500271,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 79172
+    "file_size": 79172,
+    "source_fingerprint": "file-sha256:e130be4628fe93b76be9cee5dbb19bb1159088bde337687b660d5dd52b93eb90",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "229",
@@ -2007,7 +2273,9 @@
     "extracted_at": 1775667153.6321974,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 80893
+    "file_size": 80893,
+    "source_fingerprint": "file-sha256:ac8bafb3365e49cd6d1b92e683834c6745e67e69ebcd4fe191bd46b9d07b99e9",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "238",
@@ -2022,7 +2290,9 @@
     "extracted_at": 1775667152.4117372,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 21697
+    "file_size": 21697,
+    "source_fingerprint": "file-sha256:218c2bf3a28cca1eebec8a5cfb926edcd6a674b120b95d13ed86029e45089414",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "241",
@@ -2037,7 +2307,9 @@
     "extracted_at": 1775667152.286843,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 71345
+    "file_size": 71345,
+    "source_fingerprint": "file-sha256:e638b1e57dfe2a51bd84b15af332d18bdaa15fef955ca1668d2a66e2344f74d4",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "256",
@@ -2052,7 +2324,9 @@
     "extracted_at": 1775667150.449882,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 83934
+    "file_size": 83934,
+    "source_fingerprint": "file-sha256:6476a2035731b173920696cbb2cbb91adedb73a997456116ea654d8cc6cfd59c",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "283",
@@ -2067,7 +2341,9 @@
     "extracted_at": 1775667147.4843352,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 90456
+    "file_size": 90456,
+    "source_fingerprint": "file-sha256:0133ba9d89c6393fde839127d895fe0442501bd29602fe43e0f62932095f22ab",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "284",
@@ -2082,7 +2358,9 @@
     "extracted_at": 1775667147.339137,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 89711
+    "file_size": 89711,
+    "source_fingerprint": "file-sha256:6c7588d325eda42f0166426e2708ff7217bd5f8398a2e7d36f383e4d457cc103",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "285",
@@ -2097,7 +2375,9 @@
     "extracted_at": 1775667147.1855025,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 81676
+    "file_size": 81676,
+    "source_fingerprint": "file-sha256:c4389b5c6d739b24e34659310eda5e942c7030d83378248e502d41b8a0614684",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "313",
@@ -2112,7 +2392,9 @@
     "extracted_at": 1775667144.1611567,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 84817
+    "file_size": 84817,
+    "source_fingerprint": "file-sha256:acb76d1e7f9c481e94d5f5a99260c50738945ea7940dbbe5eabc269128d981fd",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "39",
@@ -2127,7 +2409,9 @@
     "extracted_at": 1775667177.628675,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 22262
+    "file_size": 22262,
+    "source_fingerprint": "file-sha256:59aa5ced1f9a359c0d18d58514bdc429e200ab78bbe8eb52c87df7eadc5c6a8d",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "40",
@@ -2142,7 +2426,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 33756
+    "file_size": 33756,
+    "source_fingerprint": "file-sha256:07344caea6fb14e6f07bde106653be90c4c6da2d0e0bb73477da7b5326ab9e6c",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "427",
@@ -2157,7 +2443,9 @@
     "extracted_at": 1775667131.9217563,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 138092
+    "file_size": 138092,
+    "source_fingerprint": "file-sha256:d2bfe712024c74bb3a97a7a4b25062dbb710b19898c96703a8255bce5f2ec2ec",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "43",
@@ -2172,7 +2460,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 37441
+    "file_size": 37441,
+    "source_fingerprint": "file-sha256:e9badc56d3cad6d2b0fca5fbb3af9c43983d7bc7aa1d422b013a64ecc33b388c",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "438",
@@ -2187,7 +2477,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 17566
+    "file_size": 17566,
+    "source_fingerprint": "file-sha256:be6dd9d4ecafd19f4ed3f18d7d0adbfaa0dbfe83b0f611c8e94b043a4a6cf9fc",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "442",
@@ -2202,7 +2494,9 @@
     "extracted_at": 1775667242.1297946,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 14859
+    "file_size": 14859,
+    "source_fingerprint": "file-sha256:6608f00585c9a61451186dea8aa8f7eb47d699e27c79aefaceb2b2f39a3052fa",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "443",
@@ -2217,7 +2511,9 @@
     "extracted_at": 1775667241.7821321,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 16718
+    "file_size": 16718,
+    "source_fingerprint": "file-sha256:04d136e84d365ab16b4329ca0740de3c37aa32dd8f56b7eca6407cd86e25963d",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "445",
@@ -2232,7 +2528,9 @@
     "extracted_at": 1775667241.9849377,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 14613
+    "file_size": 14613,
+    "source_fingerprint": "file-sha256:d9c409f83888b5db0c0a12f6d6d02f46f1b750623b3f8e79483ee2fd5d9bcf8e",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "447",
@@ -2247,7 +2545,9 @@
     "extracted_at": 1775667241.205174,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 14990
+    "file_size": 14990,
+    "source_fingerprint": "file-sha256:3b73f9fbc64cc9fd372e2a007773151a695ec7851eb8f6c33c73230e28662c0a",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "448",
@@ -2262,7 +2562,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 19207
+    "file_size": 19207,
+    "source_fingerprint": "file-sha256:97d2c9bab0f3bc2fb1171538cb0df6219d69b44a26bd5c44a0ac57720b4f08ee",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "449",
@@ -2277,7 +2579,9 @@
     "extracted_at": 1775667241.1108458,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 16030
+    "file_size": 16030,
+    "source_fingerprint": "file-sha256:c2323f4cb835fcc679893cae0afb9a0551399275e4b4b2b26c870e622056ebdb",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "450",
@@ -2292,7 +2596,9 @@
     "extracted_at": 1775667240.905268,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 13981
+    "file_size": 13981,
+    "source_fingerprint": "file-sha256:e8c7d93193dfe68b1edf4af39b034fb0a28ef5c3fc92c199a61928169175f643",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "473",
@@ -2307,7 +2613,9 @@
     "extracted_at": 1775667238.6868746,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 15109
+    "file_size": 15109,
+    "source_fingerprint": "file-sha256:28ff9efc2d0fece90e2dc564a2cbd9060d71f2b29ef68dbb4a06661bb8754a4a",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "552",
@@ -2322,7 +2630,9 @@
     "extracted_at": 1775667230.9785087,
     "extraction_method": "manual_pdf",
     "total_pages": 1,
-    "file_size": 16640
+    "file_size": 16640,
+    "source_fingerprint": "file-sha256:3f08ec3f774fc2f15bd0669a98526f1daa60d9069439147c53d070734ca24edb",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "569",
@@ -2337,7 +2647,9 @@
     "extracted_at": 1775667228.8190777,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 15895
+    "file_size": 15895,
+    "source_fingerprint": "file-sha256:7dbc7eeafe220bd14306b6caa5d761e170408fb4ac78a1eaa769874c58aff0f3",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "577",
@@ -2352,7 +2664,9 @@
     "extracted_at": 1775667228.3804748,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 16626
+    "file_size": 16626,
+    "source_fingerprint": "file-sha256:0d68f46bdb8d3b22a4d29411de076c7e3ce950869368d56510f85fa21042d8c8",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "580",
@@ -2367,7 +2681,9 @@
     "extracted_at": 1775667227.724164,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 82058
+    "file_size": 82058,
+    "source_fingerprint": "file-sha256:51b3fb779a7e8212e3660a2ba6dbd068f705ae1596601fc661a25b851068d65b",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "589",
@@ -2382,7 +2698,9 @@
     "extracted_at": 1775667225.5526178,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 78464
+    "file_size": 78464,
+    "source_fingerprint": "file-sha256:a22a761eabe16f6671e6221c68063abeba4b614976c078c73317045d4118b609",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "594",
@@ -2397,7 +2715,9 @@
     "extracted_at": 1775667225.6622007,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 78554
+    "file_size": 78554,
+    "source_fingerprint": "file-sha256:8a3db82f13cffc9fa7f496e32fe74923c3ec1a604ddeaf8e8fbd118a3b9a174e",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "596",
@@ -2412,7 +2732,9 @@
     "extracted_at": 1775667225.217054,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 78973
+    "file_size": 78973,
+    "source_fingerprint": "file-sha256:bd669972e0c506d8665e0cb162035483d0e09917ec5e1892b9b83d0a143ce820",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "602",
@@ -2427,7 +2749,9 @@
     "extracted_at": 1775667223.8261452,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 77349
+    "file_size": 77349,
+    "source_fingerprint": "file-sha256:a9a000b0de921fe3135974544368450d3aff033ae181c799de734c2d7f81ff66",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "605",
@@ -2442,7 +2766,9 @@
     "extracted_at": 1775667224.4757798,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 77073
+    "file_size": 77073,
+    "source_fingerprint": "file-sha256:beac37ec92a3e715579e5bec7dc16f576910ab0951e7a204ad6fe0e9ef88d367",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "608",
@@ -2457,7 +2783,9 @@
     "extracted_at": 1775667223.492117,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 79953
+    "file_size": 79953,
+    "source_fingerprint": "file-sha256:dd4bc00b3ec8628b13a893f09fbfe112ef4900a0f29caf1223246dbe10cfc7b0",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "609",
@@ -2472,7 +2800,9 @@
     "extracted_at": 1775667223.002191,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 16637
+    "file_size": 16637,
+    "source_fingerprint": "file-sha256:bf490c595facd52e768a81f6bfe090433be4c231c39b672ad5a0f522f3ed0399",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "616",
@@ -2487,7 +2817,9 @@
     "extracted_at": 1775667221.5671763,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 78641
+    "file_size": 78641,
+    "source_fingerprint": "file-sha256:d5bd8bea49eec9977e03087e5ae9625372a0e4a936d10e294981f3a6c840ea1e",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "624",
@@ -2502,7 +2834,9 @@
     "extracted_at": 1775667221.1093116,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 80480
+    "file_size": 80480,
+    "source_fingerprint": "file-sha256:a7aca3ba03a45d7c0693c9f305f32ebe499cbd79faa2c004682d056d0356e6b7",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "627",
@@ -2517,7 +2851,9 @@
     "extracted_at": 1775667220.4707904,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 78957
+    "file_size": 78957,
+    "source_fingerprint": "file-sha256:045d2209db303a77916f8025a2db4b85a4782825a258f6aa6fad9748ebbb5baf",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "630",
@@ -2532,7 +2868,9 @@
     "extracted_at": 1775667220.3218505,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 81074
+    "file_size": 81074,
+    "source_fingerprint": "file-sha256:f585408768002221a58d37ae9fb7b3227636cf6c21759bf175a869025debb74e",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "636",
@@ -2547,7 +2885,9 @@
     "extracted_at": 1775667219.5117602,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 81273
+    "file_size": 81273,
+    "source_fingerprint": "file-sha256:5f8856c5076700f80334025ec5faf2f405ed851895fca2d5730946f567474bdc",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "639",
@@ -2562,7 +2902,9 @@
     "extracted_at": 1775667218.5095515,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 15928
+    "file_size": 15928,
+    "source_fingerprint": "file-sha256:02885b637dfe4fe6c5b4d2037b4387d03e1b16f3ae0a68aa63db04e05a90a13a",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "641",
@@ -2577,7 +2919,9 @@
     "extracted_at": 1775667218.3255253,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 16109
+    "file_size": 16109,
+    "source_fingerprint": "file-sha256:f5b46254fba86522ddc6e957db2a604823954b4bfb189bde67bdeb5bf6e7fd13",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "643",
@@ -2592,7 +2936,9 @@
     "extracted_at": 1775667218.1156018,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 15836
+    "file_size": 15836,
+    "source_fingerprint": "file-sha256:ee2fbddc0696848587ba383b88d8e02571a27f1770fc82b45026b7aa551ff0a9",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "652",
@@ -2607,7 +2953,9 @@
     "extracted_at": 1775667219.2816389,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 15945
+    "file_size": 15945,
+    "source_fingerprint": "file-sha256:be5ea8bad8ef35dd4d18d244f5a33d0f9eedab341dab444b3c3ad5c9860f426e",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "653",
@@ -2622,7 +2970,9 @@
     "extracted_at": 1775667217.1216514,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 16758
+    "file_size": 16758,
+    "source_fingerprint": "file-sha256:e039dbce1a58ab5077570246b84f8f2cc1a5c41c487d943811c960440828111a",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "660",
@@ -2637,7 +2987,9 @@
     "extracted_at": 1775667216.426076,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 15492
+    "file_size": 15492,
+    "source_fingerprint": "file-sha256:7892043034f7cadb4d89bfb5b96a62824f3bfa895507450637fdb6189884c90b",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "670",
@@ -2652,7 +3004,9 @@
     "extracted_at": 1775667215.32385,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 68119
+    "file_size": 68119,
+    "source_fingerprint": "file-sha256:debc4bce6943c2cd86f18c0e3521eb71459cc1c19bb183d11bbd0020b4af8c9c",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "673",
@@ -2667,7 +3021,9 @@
     "extracted_at": 1775667216.012612,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 68855
+    "file_size": 68855,
+    "source_fingerprint": "file-sha256:7d1999a2269383aac4fc88b7735b8bd322f13027ae49323cd8e08afa28f5b373",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "679",
@@ -2682,7 +3038,9 @@
     "extracted_at": 1775667214.301825,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 66027
+    "file_size": 66027,
+    "source_fingerprint": "file-sha256:3dba103775a5f46df0786611703e4e7e95419357a8074f3bfd4b49356dac51b9",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "696",
@@ -2697,7 +3055,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "manual_pdf",
     "total_pages": 2,
-    "file_size": 96629
+    "file_size": 96629,
+    "source_fingerprint": "file-sha256:53e53349c58bd27bbe51081af3c4d027dd1dec54e8a45a6e261a96885645a421",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "698",
@@ -2712,7 +3072,9 @@
     "extracted_at": 1775667211.2512033,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 68235
+    "file_size": 68235,
+    "source_fingerprint": "file-sha256:651cb4f9a726279f9d1d9ab5eae5edc8d1087d83ab57ae25777ab2e93a3230f2",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "70",
@@ -2727,7 +3089,9 @@
     "extracted_at": 1775667173.3869593,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 20936
+    "file_size": 20936,
+    "source_fingerprint": "file-sha256:3ae5f162215d03abab422e7268c03b8987fb3aa0f40f3ccdc1184b37d71b06dc",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "702",
@@ -2742,7 +3106,9 @@
     "extracted_at": 1775667209.7708566,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 67475
+    "file_size": 67475,
+    "source_fingerprint": "file-sha256:e84bb6e6e343512a5b71623d3f64fd43f90daca4c50b0281da8f8623a702f6e3",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "703",
@@ -2757,7 +3123,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 2,
-    "file_size": 155387
+    "file_size": 155387,
+    "source_fingerprint": "file-sha256:103b6abc94e6a6a648ba3a341c1073f12a1025656b6aede15be5ff5724788c16",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "704",
@@ -2772,7 +3140,9 @@
     "extracted_at": 1778557474.7100737,
     "extraction_method": "manual_pdf",
     "total_pages": 2,
-    "file_size": 138754
+    "file_size": 138754,
+    "source_fingerprint": "file-sha256:483e740e39cc4498d41f1441a0239f1589a6ea07c67bf2018ded977e0d83dc8a",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "71",
@@ -2787,7 +3157,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 27990
+    "file_size": 27990,
+    "source_fingerprint": "file-sha256:729cdd7e56e988914591decd3360a5687959bd1fe33df4792e700237e728df75",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "720",
@@ -2802,7 +3174,9 @@
     "extracted_at": 1775667206.6384017,
     "extraction_method": "manual_pdf",
     "total_pages": 2,
-    "file_size": 339154
+    "file_size": 339154,
+    "source_fingerprint": "file-sha256:59ac87179990f3f56c3449e099a90ff5c5e1926e5f5f984c8aca6e7e2650439d",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "73",
@@ -2817,7 +3191,9 @@
     "extracted_at": 1775667173.7481916,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 21420
+    "file_size": 21420,
+    "source_fingerprint": "file-sha256:da1eac51edeab027b87dea2d7c7564e14164322d83601fe890b187a3a67ba75d",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "731",
@@ -2832,7 +3208,9 @@
     "extracted_at": 1775667204.501593,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 63230
+    "file_size": 63230,
+    "source_fingerprint": "file-sha256:8a0cb2854a7a13b70e30e3546580abb498b8ceac996dee3d0fbbcdc4cd459b23",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "74",
@@ -2847,7 +3225,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 3,
-    "file_size": 62879
+    "file_size": 62879,
+    "source_fingerprint": "file-sha256:1b5327a52f833c2c8ff973e0521bd18083b9052d47f7fed4d8979e3118fe2add",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "744",
@@ -2862,7 +3242,9 @@
     "extracted_at": 1775667201.3577013,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 66854
+    "file_size": 66854,
+    "source_fingerprint": "file-sha256:4ef49537de9e12754e3b2e3e87dd713328331539de753f1ebb53943ea822c57f",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "751",
@@ -2877,7 +3259,9 @@
     "extracted_at": 1775667202.5778658,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 69785
+    "file_size": 69785,
+    "source_fingerprint": "file-sha256:f407ee8b0bc26a980d39f86950f9bfca74bbd053627fd4e0a29e3e280f0d5331",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "758",
@@ -2892,7 +3276,9 @@
     "extracted_at": 1775667200.2423978,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 186347
+    "file_size": 186347,
+    "source_fingerprint": "file-sha256:5837e2a91f5b7bd75d2a4bffad0ea4d8feb52e3825f26e53deb54a2331d06043",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "759",
@@ -2907,7 +3293,9 @@
     "extracted_at": 1775667199.6918654,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 119352
+    "file_size": 119352,
+    "source_fingerprint": "file-sha256:e1c2b43676dad2e2328b1942462ffa68b069428e9dbc29bd86c3bdbe997c1040",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "77",
@@ -2922,7 +3310,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 35528
+    "file_size": 35528,
+    "source_fingerprint": "file-sha256:7da7ec6238bf778633fab15824bc21933e7eb82ae0b856578254e44ad6d7f9e6",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "773",
@@ -2937,7 +3327,9 @@
     "extracted_at": 1775667200.3705132,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 196068
+    "file_size": 196068,
+    "source_fingerprint": "file-sha256:5616ecbf04d0dbdfb101ba9d4b98ddfa7223847f245474ff1115437181e70cb9",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "774",
@@ -2952,7 +3344,9 @@
     "extracted_at": 1775667198.0676532,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 195651
+    "file_size": 195651,
+    "source_fingerprint": "file-sha256:3f7875a2b3ba47b6907f1900bbc13160d58b3da60a21bf5ed38f0418ae6309a7",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "775",
@@ -2967,7 +3361,9 @@
     "extracted_at": 1775667197.6704886,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 198132
+    "file_size": 198132,
+    "source_fingerprint": "file-sha256:28ac00ded02e6d7b3534da893ac8556f8d4db3e63b964213d2844fdb6a27e68a",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "776",
@@ -2982,7 +3378,9 @@
     "extracted_at": 1775667197.5024178,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 195377
+    "file_size": 195377,
+    "source_fingerprint": "file-sha256:e4a5cd24f665caba8dc4877feeb782f851ed428e002ccd8780045c4577c8cea7",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "777",
@@ -2997,7 +3395,9 @@
     "extracted_at": 1775667197.3618395,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 198476
+    "file_size": 198476,
+    "source_fingerprint": "file-sha256:d7aabfb1b5b5e3da7e341e6fc29ce64eb857913daa703d58457ced0223d59f95",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "778",
@@ -3012,7 +3412,9 @@
     "extracted_at": 1775667197.962385,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 182668
+    "file_size": 182668,
+    "source_fingerprint": "file-sha256:034d0f4d37f5a7788ae3816835b076857881fd1cd667d103e276ba02d72fc684",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "779",
@@ -3027,7 +3429,9 @@
     "extracted_at": 1775667197.1603975,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 190578
+    "file_size": 190578,
+    "source_fingerprint": "file-sha256:a708573d064ac16bb6ec7240f1df28fa9db7074d01edd7e1a3974c5443956f3c",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "780",
@@ -3042,7 +3446,9 @@
     "extracted_at": 1775667198.1979012,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 188860
+    "file_size": 188860,
+    "source_fingerprint": "file-sha256:3dad931ecfd20ab0d7715bfa16143e337dec2ceb2b4fa6b7e016a7f59bbc1d85",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "781",
@@ -3057,7 +3463,9 @@
     "extracted_at": 1775667196.8915644,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 275563
+    "file_size": 275563,
+    "source_fingerprint": "file-sha256:831861d1da900437562b34ba984cae8e4dbd5f4731e294796bee520149670f04",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "782",
@@ -3072,7 +3480,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 197913
+    "file_size": 197913,
+    "source_fingerprint": "file-sha256:2fb4416beeb68a22b14d55f60340c59ea9f0e5f22f663c097e09a4392149936f",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "783",
@@ -3087,7 +3497,9 @@
     "extracted_at": 1775667197.2229307,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 191148
+    "file_size": 191148,
+    "source_fingerprint": "file-sha256:32ec1e63a5db30b466c49705342d2d3f6e3a8bb9d3288df7fdc621949ad6aa97",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "784",
@@ -3102,7 +3514,9 @@
     "extracted_at": 1775667198.260743,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 87240
+    "file_size": 87240,
+    "source_fingerprint": "file-sha256:92ac1b047889d3a2660b297e4fe0d85118cb9c34d623107de4e5481377fcd628",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "786",
@@ -3117,7 +3531,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout+manual_latex",
     "total_pages": 1,
-    "file_size": 388479
+    "file_size": 388479,
+    "source_fingerprint": "file-sha256:90af079b52545b556bd7daa2ea1dd4fd4014532d01d710495f3a7cba2fd6a7a2",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "787",
@@ -3132,7 +3548,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout+manual_latex",
     "total_pages": 1,
-    "file_size": 399251
+    "file_size": 399251,
+    "source_fingerprint": "file-sha256:b9500284f4ef5f1e3d16f6397e1b9bf771322b036da927f3c711769cd302d63b",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "789",
@@ -3147,7 +3565,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout+manual_latex",
     "total_pages": 1,
-    "file_size": 465697
+    "file_size": 465697,
+    "source_fingerprint": "file-sha256:16b674ba3feb153c13557c30225acc149915cfe0298ab2633e862bf33ac4929d",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "79",
@@ -3162,7 +3582,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 28488
+    "file_size": 28488,
+    "source_fingerprint": "file-sha256:85beee4337d5f5f032545af048f6a456cf8dda74117004be352fecd6f955bdcf",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "793",
@@ -3177,7 +3599,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout+manual_latex",
     "total_pages": 1,
-    "file_size": 463926
+    "file_size": 463926,
+    "source_fingerprint": "file-sha256:0f48f520696dc698418defa36984081038f5b2b88bf36be76a933e791eb2a05b",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "794",
@@ -3192,7 +3616,9 @@
     "extracted_at": 1775667195.0117087,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 187060
+    "file_size": 187060,
+    "source_fingerprint": "file-sha256:7f4ed337be4dd47a84642dcce807f04d5b07691418b23b76b3b5725bf6219c63",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "795",
@@ -3207,7 +3633,9 @@
     "extracted_at": 1775667194.7642448,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 270210
+    "file_size": 270210,
+    "source_fingerprint": "file-sha256:d0bbff31eefec201d6738b55c71d284ed47829d2866cb39e8390f7e96691d7a1",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "796",
@@ -3222,7 +3650,9 @@
     "extracted_at": 1775667195.724507,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 193778
+    "file_size": 193778,
+    "source_fingerprint": "file-sha256:79373e12db8bb5937f3c67d390b46b13e217f87eb2524a351b921850a81d5e6a",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "798",
@@ -3237,7 +3667,9 @@
     "extracted_at": 1775667195.4097142,
     "extraction_method": "pdftotext_layout+manual_latex",
     "total_pages": 1,
-    "file_size": 292938
+    "file_size": 292938,
+    "source_fingerprint": "file-sha256:1cd7335e85fa991eb0a8072bc85db101b969626ba96cd72794579dc635b4cc66",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "80",
@@ -3252,7 +3684,9 @@
     "extracted_at": 1775667174.6357276,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 24222
+    "file_size": 24222,
+    "source_fingerprint": "file-sha256:400293572634c4f474dbafa97c6fceb73279ad7a7df82fb744b4e78acf5de052",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "800",
@@ -3267,7 +3701,9 @@
     "extracted_at": 1775667194.37396,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 294003
+    "file_size": 294003,
+    "source_fingerprint": "file-sha256:fc7cfdb75c9c309b5429d090ed93e7188a784146cafc3f46a09e173026cbc8d8",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "802",
@@ -3282,7 +3718,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 370005
+    "file_size": 370005,
+    "source_fingerprint": "file-sha256:2019f073bebf3672887f2d8dd2bc8f252d77bc3fc2d8f0cd86cfdce09f611d2d",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "803",
@@ -3297,7 +3735,9 @@
     "extracted_at": 1775667193.246477,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 199719
+    "file_size": 199719,
+    "source_fingerprint": "file-sha256:7922945b7bf6baa33d13dfdef3c11393655093cb27f613f33b90dc56e57d6f96",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "804",
@@ -3312,7 +3752,9 @@
     "extracted_at": 1775667193.0866003,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 206496
+    "file_size": 206496,
+    "source_fingerprint": "file-sha256:fdc7788fc80436f8c6691ddfb02dce1f9fdbedb694034781fd0f82e3a4d52e48",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "805",
@@ -3327,7 +3769,9 @@
     "extracted_at": 1775667193.631463,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 272019
+    "file_size": 272019,
+    "source_fingerprint": "file-sha256:df76ce024502bac3bd6ed00bac31d097cf3c990474b3ecafbd678e819cf14584",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "806",
@@ -3342,7 +3786,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 2,
-    "file_size": 381078
+    "file_size": 381078,
+    "source_fingerprint": "file-sha256:85e51b8279c17ba5811c3c9d728a62159c03b534a11135e5b363f1f9d8ce4770",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "808",
@@ -3357,7 +3803,9 @@
     "extracted_at": 1775667192.6243527,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 288158
+    "file_size": 288158,
+    "source_fingerprint": "file-sha256:d7e1f2aa6dfc19c284908e2ec48fe67a663793858913f94a9fb4e05fa9c05bb2",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "81",
@@ -3372,7 +3820,9 @@
     "extracted_at": 1775667173.0314538,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 21924
+    "file_size": 21924,
+    "source_fingerprint": "file-sha256:e724b097a62dcdb45e16fb1d35e06edbd0bc6f5ed3a1311a537eae62616b162c",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "83",
@@ -3387,7 +3837,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 33375
+    "file_size": 33375,
+    "source_fingerprint": "file-sha256:a137486947a49ad6982908fae089e75a0010c831d834717f1f4310f83f195e7f",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "85",
@@ -3402,7 +3854,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 7,
-    "file_size": 101962
+    "file_size": 101962,
+    "source_fingerprint": "file-sha256:38b7b48f10831407344cc84bb330679269e3afa9b5f427d6c187b09602276dae",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "90",
@@ -3417,7 +3871,9 @@
     "extracted_at": 1775667171.108802,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 26131
+    "file_size": 26131,
+    "source_fingerprint": "file-sha256:fd531c99788adbaec7b990296866022568795afa052e5a916a634a1b3d6b1741",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "900",
@@ -3432,7 +3888,9 @@
     "extracted_at": 1778556980.4356916,
     "extraction_method": "manual_pdf",
     "total_pages": 1,
-    "file_size": 147742
+    "file_size": 147742,
+    "source_fingerprint": "file-sha256:8dca82678be159989d2ef4cd7012e3eae4932fea6afc1d8867731f4d10589327",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "901",
@@ -3447,7 +3905,9 @@
     "extracted_at": 1778556980.4356916,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 73760
+    "file_size": 73760,
+    "source_fingerprint": "file-sha256:1368489cdf70898e5a645d5efc457acdf39de1da66034c494d4d69f0fcc3822c",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "902",
@@ -3462,7 +3922,9 @@
     "extracted_at": 1778556980.4356916,
     "extraction_method": "manual_pdf",
     "total_pages": 1,
-    "file_size": 277892
+    "file_size": 277892,
+    "source_fingerprint": "file-sha256:2107b8d40b420975fc94471b620c502dd95788409b3c1d43e3338dde5f5603cf",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "903",
@@ -3477,7 +3939,9 @@
     "extracted_at": 1778581122.094284,
     "extraction_method": "pdftotext_degraded+manual_latex",
     "total_pages": 5,
-    "file_size": 400271
+    "file_size": 400271,
+    "source_fingerprint": "file-sha256:42a35ee66926db24bf0ff14caf8170a9cc5eb38dde3e074e982c2e13f349e0b1",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "905",
@@ -3492,7 +3956,9 @@
     "extracted_at": 1778580797.2028162,
     "extraction_method": "pdftotext_layout",
     "total_pages": 16,
-    "file_size": 923668
+    "file_size": 923668,
+    "source_fingerprint": "file-sha256:2a168df63aca7d8a29c17938b99834b6a85ac39dbcd1b39033da95d01c623ab4",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "907",
@@ -3507,7 +3973,9 @@
     "extracted_at": 1778580797.2028162,
     "extraction_method": "markitdown",
     "total_pages": 3,
-    "file_size": 68724
+    "file_size": 68724,
+    "source_fingerprint": "file-sha256:3c8e587ab275bc97de5e17b276a20e2b1abd5332fcb116e2a498833aaa4a330c",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "908",
@@ -3522,7 +3990,9 @@
     "extracted_at": 1778580797.2028162,
     "extraction_method": "pdftotext_layout",
     "total_pages": 2,
-    "file_size": 39407
+    "file_size": 39407,
+    "source_fingerprint": "file-sha256:d390d88b546241429bc3986c61170a45ddd1bf16a6c167d14eb38ad0fb2dfa61",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "909",
@@ -3537,7 +4007,9 @@
     "extracted_at": 1778580797.2028162,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 151048
+    "file_size": 151048,
+    "source_fingerprint": "file-sha256:ed7c2192f8fbbc973dab1e9b5b0bd2fc0d672e3be62cde5062cf27894d4b4a85",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "91",
@@ -3552,7 +4024,9 @@
     "extracted_at": 1775667169.6755853,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 20072
+    "file_size": 20072,
+    "source_fingerprint": "file-sha256:0e47e88feaa9b8e4c47e01f06c421cfba49f45475e385bc4ad82cffab4ef5993",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "911",
@@ -3567,7 +4041,9 @@
     "extracted_at": 1778580797.2028162,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 31750
+    "file_size": 31750,
+    "source_fingerprint": "file-sha256:0fc2e41c57e896c98b93d4408cff6f65c36029d52bb758225a82f31df2ab66ea",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "912",
@@ -3582,7 +4058,9 @@
     "extracted_at": 1778580797.2028162,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 23758
+    "file_size": 23758,
+    "source_fingerprint": "file-sha256:ba04f5f33be11ea1f27032caf431705e8c9e341874815b7602265c18b6676907",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "913",
@@ -3597,7 +4075,9 @@
     "extracted_at": 1778580797.2028162,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 23255
+    "file_size": 23255,
+    "source_fingerprint": "file-sha256:dd5150c96cb669827904025325b8c03576f8da7e8eb8f460e624c5e8bfcabf13",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "915",
@@ -3612,7 +4092,9 @@
     "extracted_at": 1778580797.2028162,
     "extraction_method": "manual_pdf",
     "total_pages": 3,
-    "file_size": 249507
+    "file_size": 249507,
+    "source_fingerprint": "file-sha256:fa4ddc0b7bfed86da46a0e99d970d2e51e4082b8fd4d3bf88e508ee9e37bf897",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "917",
@@ -3627,7 +4109,9 @@
     "extracted_at": 1778580797.2028162,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 151048
+    "file_size": 151048,
+    "source_fingerprint": "file-sha256:ed7c2192f8fbbc973dab1e9b5b0bd2fc0d672e3be62cde5062cf27894d4b4a85",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "93",
@@ -3642,7 +4126,9 @@
     "extracted_at": 1775667171.3136923,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 19731
+    "file_size": 19731,
+    "source_fingerprint": "file-sha256:a5d614e61709a0e5ce9fdc91eb48f826f4ce0f01af68a4cd8763cf8f11f674a7",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "934",
@@ -3657,7 +4143,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 19,
-    "file_size": 845031
+    "file_size": 845031,
+    "source_fingerprint": "file-sha256:5512dbb8e20318be3e43c8efc868756f0988c6b0bdf882996b2e79caad775d4e",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "935",
@@ -3672,7 +4160,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 15,
-    "file_size": 524389
+    "file_size": 524389,
+    "source_fingerprint": "file-sha256:b8c62b48026a127f3a5de48f19c7206847ddb4eeba3b9b51ba31099e9af94a0e",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "943",
@@ -3687,7 +4177,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 14,
-    "file_size": 225781
+    "file_size": 225781,
+    "source_fingerprint": "file-sha256:28ca83020bffb0d533ec4cd51c547fc9afeec1cda34238732dad15398fff67fc",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "944",
@@ -3702,7 +4194,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 5,
-    "file_size": 273782
+    "file_size": 273782,
+    "source_fingerprint": "file-sha256:cd8f515856959f8769442ebea2fa94c87337359d9e74ac47c306758efa1fe04d",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "945",
@@ -3717,7 +4211,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "manual_pdf",
     "total_pages": 9,
-    "file_size": 340578
+    "file_size": 340578,
+    "source_fingerprint": "file-sha256:2566ad864d2eb8427e64cc348cf11b23bb22b07b2dfb0b9f4452d27fde3aea87",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "946",
@@ -3732,7 +4228,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 21,
-    "file_size": 467820
+    "file_size": 467820,
+    "source_fingerprint": "file-sha256:42acfaebdb5fb5d71f279c536579d22a90217d6888514f096d534fd8a7178eed",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "947",
@@ -3747,7 +4245,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 13,
-    "file_size": 410115
+    "file_size": 410115,
+    "source_fingerprint": "file-sha256:d80d4f447279770052fd49aeb4949e791af6cd53a1443da051415620b17eefb0",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "948",
@@ -3762,7 +4262,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 14,
-    "file_size": 332572
+    "file_size": 332572,
+    "source_fingerprint": "file-sha256:0e05fd9f2316c5b4361167bc1c00f622888342e94482bab40a9e9d0a2ffedee2",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "949",
@@ -3777,7 +4279,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 11,
-    "file_size": 279421
+    "file_size": 279421,
+    "source_fingerprint": "file-sha256:038fdee4c22461f68291670c8939f80663a834153448eb9c098021b513dd3a59",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "950",
@@ -3792,7 +4296,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 8,
-    "file_size": 358485
+    "file_size": 358485,
+    "source_fingerprint": "file-sha256:b19296270bcd82a46301a24ab8342ac6f65d378d8eafc1e31333a77ed49375f2",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "951",
@@ -3807,7 +4313,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 10,
-    "file_size": 530297
+    "file_size": 530297,
+    "source_fingerprint": "file-sha256:641646538343522303d530a56d8101d51f4310535f07d998459610190cd984fc",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "952",
@@ -3822,7 +4330,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 4,
-    "file_size": 321734
+    "file_size": 321734,
+    "source_fingerprint": "file-sha256:db559d19c95c497d11f3385661878f4e79c74de73cf3d13de64614849ae592ca",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "953",
@@ -3837,7 +4347,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 6,
-    "file_size": 279174
+    "file_size": 279174,
+    "source_fingerprint": "file-sha256:9f57b2f337b2148e38313dc6f44b2e698e1adbc9224ecf5bbee9a2ce0d4521b8",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "954",
@@ -3852,7 +4364,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 24,
-    "file_size": 607902
+    "file_size": 607902,
+    "source_fingerprint": "file-sha256:2f06c1e4129c453224857f75891ae286bfe6d7f7e76150064f4ab497a2799ab5",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "955",
@@ -3867,7 +4381,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 6,
-    "file_size": 304980
+    "file_size": 304980,
+    "source_fingerprint": "file-sha256:dcc888360657a56fe1512bfbe21455ea7d92662061c5f65e1fcf5483eb2d37b7",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "956",
@@ -3882,7 +4398,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 7,
-    "file_size": 293484
+    "file_size": 293484,
+    "source_fingerprint": "file-sha256:350fa4e538826cea4d2ba9f33bc089fc5895411b008e079b68ac90320b2b4a1d",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "96",
@@ -3897,7 +4415,9 @@
     "extracted_at": 1775667169.418171,
     "extraction_method": "pdftotext_layout",
     "total_pages": 1,
-    "file_size": 21288
+    "file_size": 21288,
+    "source_fingerprint": "file-sha256:c1f1ceb2bc60a7150f3996fe483c054a7a948dc132d0517ea669f3b6ff3273bc",
+    "source_fingerprint_at": 1794696394.3378203
   },
   {
     "document_id": "kgk_tms_12",
@@ -3912,7 +4432,9 @@
     "extracted_at": 1790696738.43308,
     "extraction_method": "pdftotext_layout",
     "total_pages": 22,
-    "file_size": 591067
+    "file_size": 591067,
+    "source_fingerprint": "",
+    "source_fingerprint_at": null
   },
   {
     "document_id": "mevzuat_10494",
@@ -3927,7 +4449,9 @@
     "extracted_at": 1776786498.483435,
     "extraction_method": "html_parser",
     "total_pages": 3,
-    "file_size": 71204
+    "file_size": 71204,
+    "source_fingerprint": "mevzuat-text-v1:b7275eee3244031813feec781a8cd40f515a757f5e1bc19ed5e44654f05f09ad",
+    "source_fingerprint_at": 1794773767.0252697
   },
   {
     "document_id": "mevzuat_10522",
@@ -3942,7 +4466,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "manual_pdf",
     "total_pages": 6,
-    "file_size": 494940
+    "file_size": 494940,
+    "source_fingerprint": "mevzuat-text-v1:441927f24374b06d773e10ae5373c44a698d661d7c194994e9142f42c2314ca4",
+    "source_fingerprint_at": 1794773767.0367439
   },
   {
     "document_id": "mevzuat_10731",
@@ -3957,7 +4483,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "manual_pdf",
     "total_pages": 3,
-    "file_size": 595802
+    "file_size": 595802,
+    "source_fingerprint": "mevzuat-text-v1:1ad63201a833e6e15186626a16147b4b9df3caca4ff3569799fd5ccdfd0be3ca",
+    "source_fingerprint_at": 1794773767.0166368
   },
   {
     "document_id": "mevzuat_10732",
@@ -3972,7 +4500,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "html_parser",
     "total_pages": 5,
-    "file_size": 49113
+    "file_size": 49113,
+    "source_fingerprint": "mevzuat-text-v1:2545e83d5c7f72abe4218859b271936c4db3884489370fb35d07a860db6242ce",
+    "source_fingerprint_at": 1794773767.027947
   },
   {
     "document_id": "mevzuat_10733",
@@ -3987,7 +4517,9 @@
     "extracted_at": 1776786540.7661147,
     "extraction_method": "html_parser",
     "total_pages": 2,
-    "file_size": 39717
+    "file_size": 39717,
+    "source_fingerprint": "mevzuat-text-v1:04c082026ec5e2d23e5f66eadd4e3e884a5861101f8ff29a9d7fff67af54847f",
+    "source_fingerprint_at": 1794773767.0074081
   },
   {
     "document_id": "mevzuat_10735",
@@ -4002,7 +4534,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 4,
-    "file_size": 93294
+    "file_size": 93294,
+    "source_fingerprint": "mevzuat-text-v1:cdc04b8922cb67e8d70a2524b828913e8b4180e519dd343378a138cf66ba8da4",
+    "source_fingerprint_at": 1794773767.0558362
   },
   {
     "document_id": "mevzuat_10736",
@@ -4017,7 +4551,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "html_parser",
     "total_pages": 3,
-    "file_size": 33799
+    "file_size": 33799,
+    "source_fingerprint": "mevzuat-text-v1:9b1933faaf2c5d58be86edb48c2c62ffb1094494bdf384ff8d31b707694dc55c",
+    "source_fingerprint_at": 1794773767.0643795
   },
   {
     "document_id": "mevzuat_10737",
@@ -4032,7 +4568,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "html_parser",
     "total_pages": 4,
-    "file_size": 84670
+    "file_size": 84670,
+    "source_fingerprint": "mevzuat-text-v1:d49627b024726f5b3b99aef33591774ffafdb3b92e98aaac145c8bf46dee9b80",
+    "source_fingerprint_at": 1794773767.0843003
   },
   {
     "document_id": "mevzuat_10739",
@@ -4047,7 +4585,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 2,
-    "file_size": 579571
+    "file_size": 579571,
+    "source_fingerprint": "mevzuat-text-v1:115981ed722d20eeca6b9fb78526cd6d884a15b169d0781a9af4cf9a60823446",
+    "source_fingerprint_at": 1794773767.0783916
   },
   {
     "document_id": "mevzuat_10742",
@@ -4062,7 +4602,9 @@
     "extracted_at": 1776786556.4964826,
     "extraction_method": "html_parser",
     "total_pages": 6,
-    "file_size": 60868
+    "file_size": 60868,
+    "source_fingerprint": "mevzuat-text-v1:d41bd9035fb20333aae2909f0872301ba7c1b83ccc2cc46b41e9630b1839c896",
+    "source_fingerprint_at": 1794773767.082822
   },
   {
     "document_id": "mevzuat_10746",
@@ -4077,7 +4619,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "manual_pdf",
     "total_pages": 10,
-    "file_size": 758188
+    "file_size": 758188,
+    "source_fingerprint": "mevzuat-text-v1:3358f3281e6099ab9167d58dba296a4809a5367bee004bdf29e262899e8eb477",
+    "source_fingerprint_at": 1794773767.1066542
   },
   {
     "document_id": "mevzuat_10747",
@@ -4092,7 +4636,9 @@
     "extracted_at": 1776786571.9679475,
     "extraction_method": "html_parser",
     "total_pages": 4,
-    "file_size": 44481
+    "file_size": 44481,
+    "source_fingerprint": "mevzuat-text-v1:e374b16ab4929058b7ef1a4ce9536d762d4a6a21f31104c980fb2c3b35ea3137",
+    "source_fingerprint_at": 1794773767.1217792
   },
   {
     "document_id": "mevzuat_10749",
@@ -4107,7 +4653,9 @@
     "extracted_at": 1776786576.368708,
     "extraction_method": "html_parser",
     "total_pages": 4,
-    "file_size": 54735
+    "file_size": 54735,
+    "source_fingerprint": "mevzuat-text-v1:1db4554c4f72917bff0c1d22f001df8b9c596307d804374f1b93be90d093e23a",
+    "source_fingerprint_at": 1794773767.1492934
   },
   {
     "document_id": "mevzuat_10750",
@@ -4122,7 +4670,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "html_parser",
     "total_pages": 4,
-    "file_size": 67018
+    "file_size": 67018,
+    "source_fingerprint": "mevzuat-text-v1:f06dd41fab4bb01e5697c082e6a6613d0ddb92f88fe91453cc3f45467a523ea6",
+    "source_fingerprint_at": 1794773767.1523006
   },
   {
     "document_id": "mevzuat_10770",
@@ -4137,7 +4687,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 2,
-    "file_size": 51015
+    "file_size": 51015,
+    "source_fingerprint": "mevzuat-text-v1:1865ac60b76ae7ef3134333e2f6e84b5a0042ec899c26508c8b60db885a05933",
+    "source_fingerprint_at": 1794773767.1315134
   },
   {
     "document_id": "mevzuat_11069",
@@ -4152,7 +4704,9 @@
     "extracted_at": 1776786589.3634531,
     "extraction_method": "html_parser",
     "total_pages": 2,
-    "file_size": 48768
+    "file_size": 48768,
+    "source_fingerprint": "mevzuat-text-v1:0fe861dd4c81800b25fc069b6148562097359ac10f3e955871d6e8a003dcfc36",
+    "source_fingerprint_at": 1794773767.1574876
   },
   {
     "document_id": "mevzuat_11085",
@@ -4167,7 +4721,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "html_parser",
     "total_pages": 7,
-    "file_size": 91408
+    "file_size": 91408,
+    "source_fingerprint": "mevzuat-text-v1:e78603e7237072f4fca2dd7eac41ff8d0f7425e0749fbe1a33333b04b00a726f",
+    "source_fingerprint_at": 1794773767.183231
   },
   {
     "document_id": "mevzuat_11180",
@@ -4182,7 +4738,9 @@
     "extracted_at": 1794696744.1359603,
     "extraction_method": "html_parser",
     "total_pages": 19,
-    "file_size": 484408
+    "file_size": 484408,
+    "source_fingerprint": "mevzuat-text-v1:f384800c326896d15a8a83bdbaf696d178071a6b92713eed111bf37ea3c04483",
+    "source_fingerprint_at": 1794773767.2092583
   },
   {
     "document_id": "mevzuat_11201",
@@ -4197,7 +4755,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "manual_pdf",
     "total_pages": 3,
-    "file_size": 44458
+    "file_size": 44458,
+    "source_fingerprint": "mevzuat-text-v1:b816d356f877f91a691cb395d0b74f12a1d22aae93d13e0e020f166ffaeb4232",
+    "source_fingerprint_at": 1794773767.2050624
   },
   {
     "document_id": "mevzuat_11203",
@@ -4212,7 +4772,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "manual_pdf",
     "total_pages": 11,
-    "file_size": 697986
+    "file_size": 697986,
+    "source_fingerprint": "mevzuat-text-v1:e860f3c971a755b529ac43541fae6238f9a430b811ac826e79e9aa547f9f2ea6",
+    "source_fingerprint_at": 1794773767.2165673
   },
   {
     "document_id": "mevzuat_12060",
@@ -4227,7 +4789,9 @@
     "extracted_at": 1776786605.8131092,
     "extraction_method": "pdftotext_layout",
     "total_pages": 2,
-    "file_size": 30091
+    "file_size": 30091,
+    "source_fingerprint": "mevzuat-text-v1:f455e7b3974733888ac131d8ff0e7efa77ee229d0a019be0ecaa1411b1425c1e",
+    "source_fingerprint_at": 1794773767.203426
   },
   {
     "document_id": "mevzuat_15323",
@@ -4242,7 +4806,9 @@
     "extracted_at": 1776786608.4785664,
     "extraction_method": "html_parser",
     "total_pages": 5,
-    "file_size": 51696
+    "file_size": 51696,
+    "source_fingerprint": "mevzuat-text-v1:da7c79a2173a58890c46f8e1a6680e6b906d783608e13800a4913cb48c646f65",
+    "source_fingerprint_at": 1794773767.2440507
   },
   {
     "document_id": "mevzuat_15481",
@@ -4257,7 +4823,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 5,
-    "file_size": 88540
+    "file_size": 88540,
+    "source_fingerprint": "mevzuat-text-v1:ba9642a429849a2b4fa7052882783a4de8107b63a808964835bbd2a81157852b",
+    "source_fingerprint_at": 1794773767.2715974
   },
   {
     "document_id": "mevzuat_16071",
@@ -4272,7 +4840,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "manual_pdf",
     "total_pages": 19,
-    "file_size": 773447
+    "file_size": 773447,
+    "source_fingerprint": "mevzuat-text-v1:1e188a2c74c786a224c8a439a48c75daad7a77d7bea74b14d8d0b9288c3cc294",
+    "source_fingerprint_at": 1794773767.2797198
   },
   {
     "document_id": "mevzuat_16290",
@@ -4287,7 +4857,9 @@
     "extracted_at": 1789972271.3934238,
     "extraction_method": "html_parser+native_table_review",
     "total_pages": 35,
-    "file_size": 4756368
+    "file_size": 4756368,
+    "source_fingerprint": "mevzuat-text-v1:49de2ce9bd626cfed102d4ed0bd6a366468d608f9def972a1452c2094ff4a85a",
+    "source_fingerprint_at": 1794773767.3795133
   },
   {
     "document_id": "mevzuat_16291",
@@ -4302,7 +4874,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 3,
-    "file_size": 38003
+    "file_size": 38003,
+    "source_fingerprint": "mevzuat-text-v1:d9c7dcd17de80fa7f75deba1539fb57c25199c422519cac567f2f0e9a2ef67f2",
+    "source_fingerprint_at": 1794773767.2641857
   },
   {
     "document_id": "mevzuat_16292",
@@ -4317,7 +4891,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout+manual_latex",
     "total_pages": 4,
-    "file_size": 59370
+    "file_size": 59370,
+    "source_fingerprint": "mevzuat-text-v1:25dec2147eb51b7a47878db7a73bd26383c9caff99293fd37c28165d1336b53e",
+    "source_fingerprint_at": 1794773767.2906628
   },
   {
     "document_id": "mevzuat_18799",
@@ -4332,7 +4908,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "html_parser",
     "total_pages": 10,
-    "file_size": 79417
+    "file_size": 79417,
+    "source_fingerprint": "mevzuat-text-v1:f78799671582a6eb294d83027bb5d5bff3fcb00e25ad1d68a1d0cdc9a2efa436",
+    "source_fingerprint_at": 1794773767.3234322
   },
   {
     "document_id": "mevzuat_18990",
@@ -4347,7 +4925,9 @@
     "extracted_at": 1776786656.8913074,
     "extraction_method": "html_parser",
     "total_pages": 3,
-    "file_size": 65944
+    "file_size": 65944,
+    "source_fingerprint": "mevzuat-text-v1:20157fd5eaec734bde4c10595a329bb39a5009dfa859952742f2bd8f96c73118",
+    "source_fingerprint_at": 1794773767.3205745
   },
   {
     "document_id": "mevzuat_18991",
@@ -4362,7 +4942,9 @@
     "extracted_at": 1776786660.250438,
     "extraction_method": "html_parser",
     "total_pages": 2,
-    "file_size": 22299
+    "file_size": 22299,
+    "source_fingerprint": "mevzuat-text-v1:62df58cc9eda119c174f4291b9975e242c2685bff5cb6343b85f1f107b648c7e",
+    "source_fingerprint_at": 1794773767.3280694
   },
   {
     "document_id": "mevzuat_19498",
@@ -4377,7 +4959,9 @@
     "extracted_at": 1778558184.3831804,
     "extraction_method": "html_parser+annex_docx+annex_xlsx+manual_latex",
     "total_pages": 19,
-    "file_size": 79892
+    "file_size": 79892,
+    "source_fingerprint": "mevzuat-text-v1:7811a7c9812f21bddaf018b5d9e25d7901eacbd73184dc27473ce1e5ac43e886",
+    "source_fingerprint_at": 1794773767.3399036
   },
   {
     "document_id": "mevzuat_19864",
@@ -4392,7 +4976,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "html_parser",
     "total_pages": 25,
-    "file_size": 220444
+    "file_size": 220444,
+    "source_fingerprint": "mevzuat-text-v1:b0b3e428136b4aae398c0b25986a8647b479656378cdc51005e328af0d2ece3c",
+    "source_fingerprint_at": 1794773767.3978214
   },
   {
     "document_id": "mevzuat_20029",
@@ -4407,7 +4993,9 @@
     "extracted_at": 1776933837.6411362,
     "extraction_method": "html_parser+manual_latex",
     "total_pages": 23,
-    "file_size": 124817
+    "file_size": 124817,
+    "source_fingerprint": "mevzuat-text-v1:9368fc0d22d0d8a226d2b01f277ac711adaeaa51daba20efa4403664decca14c",
+    "source_fingerprint_at": 1794773767.3932369
   },
   {
     "document_id": "mevzuat_20031",
@@ -4422,7 +5010,9 @@
     "extracted_at": 1776117600.034752,
     "extraction_method": "pdftotext_layout",
     "total_pages": 5,
-    "file_size": 63328
+    "file_size": 63328,
+    "source_fingerprint": "mevzuat-text-v1:ae3c613c316e07df62b40508cbbbb027ffe19679043b784441d1f78c384230fb",
+    "source_fingerprint_at": 1794773767.385233
   },
   {
     "document_id": "mevzuat_20145885",
@@ -4437,7 +5027,9 @@
     "extracted_at": 1776786679.4100044,
     "extraction_method": "html_parser",
     "total_pages": 10,
-    "file_size": 125859
+    "file_size": 125859,
+    "source_fingerprint": "mevzuat-text-v1:34009686c84339164b7b86eb1bb8d0ba19d5ce3ca696020197729a7f84433709",
+    "source_fingerprint_at": 1794773767.40317
   },
   {
     "document_id": "mevzuat_20645",
@@ -4452,7 +5044,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "manual_pdf",
     "total_pages": 7,
-    "file_size": 509430
+    "file_size": 509430,
+    "source_fingerprint": "mevzuat-text-v1:fdeb0b227abbb89af14f35c5ab64196c4e694bad8abf09730f0ee5d7cfc4cd3a",
+    "source_fingerprint_at": 1794773767.4373455
   },
   {
     "document_id": "mevzuat_21192",
@@ -4467,7 +5061,9 @@
     "extracted_at": 1789972271.5563903,
     "extraction_method": "native_office+manual_latex",
     "total_pages": 69,
-    "file_size": 764207
+    "file_size": 764207,
+    "source_fingerprint": "mevzuat-text-v1:6efd54bc3ada04d942c8765c5a3716030825434fddda37004ac2e2d0a3840a05",
+    "source_fingerprint_at": 1794773767.4420974
   },
   {
     "document_id": "mevzuat_21193",
@@ -4482,7 +5078,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 29,
-    "file_size": 1031864
+    "file_size": 1031864,
+    "source_fingerprint": "mevzuat-text-v1:f8b92db1572550c710ea9b1677c1b132aa2cb3051c18416964fadef54029b855",
+    "source_fingerprint_at": 1794773767.5688314
   },
   {
     "document_id": "mevzuat_21194",
@@ -4497,7 +5095,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout+manual_latex",
     "total_pages": 37,
-    "file_size": 202406
+    "file_size": 202406,
+    "source_fingerprint": "mevzuat-text-v1:639deb16bae49746a2da73164d712403d076754f0d0e4d2cd471961902b9d2b1",
+    "source_fingerprint_at": 1794773767.495821
   },
   {
     "document_id": "mevzuat_21195",
@@ -4512,7 +5112,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout+manual_latex",
     "total_pages": 12,
-    "file_size": 92843
+    "file_size": 92843,
+    "source_fingerprint": "mevzuat-text-v1:8e388d31cf64aec49a84543e430a2afe97b0368c09f2515c85198c433b5d3b3a",
+    "source_fingerprint_at": 1794773767.4553056
   },
   {
     "document_id": "mevzuat_21196",
@@ -4527,7 +5129,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 11,
-    "file_size": 96472
+    "file_size": 96472,
+    "source_fingerprint": "mevzuat-text-v1:0ef2038abadd9a9adbf0bcc60777aae21eae5a3c10a51ba288465030b003f135",
+    "source_fingerprint_at": 1794773767.5010607
   },
   {
     "document_id": "mevzuat_21278",
@@ -4542,7 +5146,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "html_parser",
     "total_pages": 4,
-    "file_size": 41133
+    "file_size": 41133,
+    "source_fingerprint": "mevzuat-text-v1:e437bcc7733637cf677a0628e9c6e4726144689de0a3220ae1a061cacb024568",
+    "source_fingerprint_at": 1794773767.4867382
   },
   {
     "document_id": "mevzuat_21425",
@@ -4557,7 +5163,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 3,
-    "file_size": 65738
+    "file_size": 65738,
+    "source_fingerprint": "mevzuat-text-v1:36954cbaead6cda2b5ce6f90ed5ed5938f02d0f43e9bf43f1fed3f1760d7ab02",
+    "source_fingerprint_at": 1794773767.504214
   },
   {
     "document_id": "mevzuat_22598",
@@ -4572,7 +5180,9 @@
     "extracted_at": 1776786733.2132835,
     "extraction_method": "html_parser",
     "total_pages": 1,
-    "file_size": 22002
+    "file_size": 22002,
+    "source_fingerprint": "mevzuat-text-v1:3934009c68edc32b382cf62c4c210e77c43dd99f094ae84c1c222a6b7f445a97",
+    "source_fingerprint_at": 1794773767.5289907
   },
   {
     "document_id": "mevzuat_22599",
@@ -4587,7 +5197,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "manual_pdf",
     "total_pages": 9,
-    "file_size": 682526
+    "file_size": 682526,
+    "source_fingerprint": "mevzuat-text-v1:6da237c75b2272502649d8c0d8354d5f3ece35ec2c66cf3700d95e7b32f15fe1",
+    "source_fingerprint_at": 1794773767.5626771
   },
   {
     "document_id": "mevzuat_23228",
@@ -4602,7 +5214,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "manual_pdf",
     "total_pages": 10,
-    "file_size": 677211
+    "file_size": 677211,
+    "source_fingerprint": "mevzuat-text-v1:0d6a113f08f0e8109f9ef36df0cd9b123978c176f0592face0fa8f10afa65df4",
+    "source_fingerprint_at": 1794773767.553095
   },
   {
     "document_id": "mevzuat_24654",
@@ -4617,7 +5231,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 3,
-    "file_size": 40634
+    "file_size": 40634,
+    "source_fingerprint": "mevzuat-text-v1:34843777a75628a8757585e9b17b8200fddd4f3bff402c9c53ada3e41bbe3538",
+    "source_fingerprint_at": 1794773767.5704868
   },
   {
     "document_id": "mevzuat_24788",
@@ -4632,7 +5248,9 @@
     "extracted_at": 1776786753.6110892,
     "extraction_method": "html_parser",
     "total_pages": 2,
-    "file_size": 21467
+    "file_size": 21467,
+    "source_fingerprint": "mevzuat-text-v1:ee19b400e25269d2d884eb70c273eba05a014c155ad34416178f2ecd623faffd",
+    "source_fingerprint_at": 1794773767.576431
   },
   {
     "document_id": "mevzuat_34006",
@@ -4647,7 +5265,9 @@
     "extracted_at": 1776786756.7810683,
     "extraction_method": "html_parser",
     "total_pages": 1,
-    "file_size": 18018
+    "file_size": 18018,
+    "source_fingerprint": "mevzuat-text-v1:1a6db53e2daa37b11d213b1e527eb741097f7deed83a986d98a2406f6f4bda43",
+    "source_fingerprint_at": 1794773767.613806
   },
   {
     "document_id": "mevzuat_34360",
@@ -4662,7 +5282,9 @@
     "extracted_at": 1776786759.7729383,
     "extraction_method": "html_parser",
     "total_pages": 26,
-    "file_size": 201403
+    "file_size": 201403,
+    "source_fingerprint": "mevzuat-text-v1:7f54d257683ec48c4472eabfae0a65afc4c3ef0b9a542f37a30af76e5b549819",
+    "source_fingerprint_at": 1794773767.6353867
   },
   {
     "document_id": "mevzuat_34495",
@@ -4677,7 +5299,9 @@
     "extracted_at": 1776786769.1384773,
     "extraction_method": "html_parser",
     "total_pages": 2,
-    "file_size": 12176
+    "file_size": 12176,
+    "source_fingerprint": "mevzuat-text-v1:67c77243046786c683a4844840f444d5a8c138a199c20a60fb508c106ecd749b",
+    "source_fingerprint_at": 1794773767.631221
   },
   {
     "document_id": "mevzuat_34535",
@@ -4692,7 +5316,9 @@
     "extracted_at": 1776786772.3655953,
     "extraction_method": "html_parser",
     "total_pages": 3,
-    "file_size": 56149
+    "file_size": 56149,
+    "source_fingerprint": "mevzuat-text-v1:dd601aa28966805088b733615524305cd3a53afbf059eaee5c2cc62478eb2ff3",
+    "source_fingerprint_at": 1794773767.6218429
   },
   {
     "document_id": "mevzuat_38416",
@@ -4707,7 +5333,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "manual_pdf",
     "total_pages": 6,
-    "file_size": 506577
+    "file_size": 506577,
+    "source_fingerprint": "mevzuat-text-v1:f223716cd8f0aeffaf48715b4f3f21debe7dbbc17aef326cce4c40f77ec2cb3f",
+    "source_fingerprint_at": 1794773767.6429353
   },
   {
     "document_id": "mevzuat_38568",
@@ -4722,7 +5350,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "manual_pdf",
     "total_pages": 6,
-    "file_size": 634728
+    "file_size": 634728,
+    "source_fingerprint": "mevzuat-text-v1:89bcd34f3273c28cf1b9afa6d633ac2c5d51f31ac459e449a1eba0c2fb2689b0",
+    "source_fingerprint_at": 1794773767.656979
   },
   {
     "document_id": "mevzuat_38797",
@@ -4737,7 +5367,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "manual_pdf",
     "total_pages": 11,
-    "file_size": 697334
+    "file_size": 697334,
+    "source_fingerprint": "mevzuat-text-v1:08959bdeb65912754dad09573eec00e263bff8caf1cdb00530adac9406ed59d5",
+    "source_fingerprint_at": 1794773767.6700346
   },
   {
     "document_id": "mevzuat_38859",
@@ -4752,7 +5384,9 @@
     "extracted_at": 1776786798.9834936,
     "extraction_method": "pdftotext_layout",
     "total_pages": 2,
-    "file_size": 33269
+    "file_size": 33269,
+    "source_fingerprint": "mevzuat-text-v1:f0edfcd25d9807613d85e6a82ba3dcf08aa770e82125834bc8e7a63f972577b3",
+    "source_fingerprint_at": 1794773767.682312
   },
   {
     "document_id": "mevzuat_38873",
@@ -4767,7 +5401,9 @@
     "extracted_at": 1776786801.9599729,
     "extraction_method": "html_parser",
     "total_pages": 3,
-    "file_size": 30055
+    "file_size": 30055,
+    "source_fingerprint": "mevzuat-text-v1:096b5c787125e2f5853e8271419947e33d266400f1f4b424609646a70217915b",
+    "source_fingerprint_at": 1794773767.6855173
   },
   {
     "document_id": "mevzuat_39158",
@@ -4782,7 +5418,9 @@
     "extracted_at": 1776786805.5873852,
     "extraction_method": "html_parser+manual_latex",
     "total_pages": 7,
-    "file_size": 74288
+    "file_size": 74288,
+    "source_fingerprint": "mevzuat-text-v1:fb90bf65c0fd63a5305799fd3bfe9cd3ae0c8bc120a80a279c4be86cba91cdae",
+    "source_fingerprint_at": 1794773767.6906836
   },
   {
     "document_id": "mevzuat_39171",
@@ -4797,7 +5435,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "manual_pdf",
     "total_pages": 4,
-    "file_size": 596797
+    "file_size": 596797,
+    "source_fingerprint": "mevzuat-text-v1:f34b54952e003b6dc6252127e4faecfdd5821672b309bf3f705a14d841690fd7",
+    "source_fingerprint_at": 1794773767.7065587
   },
   {
     "document_id": "mevzuat_39257",
@@ -4812,7 +5452,9 @@
     "extracted_at": 1776786816.2859645,
     "extraction_method": "html_parser",
     "total_pages": 17,
-    "file_size": 166347
+    "file_size": 166347,
+    "source_fingerprint": "mevzuat-text-v1:5a6fafa2c13159e4ed3bae501e10b6feeaf45b61934140a0b492c0147ab34eb6",
+    "source_fingerprint_at": 1794773767.719125
   },
   {
     "document_id": "mevzuat_39442",
@@ -4827,7 +5469,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 4,
-    "file_size": 46116
+    "file_size": 46116,
+    "source_fingerprint": "mevzuat-text-v1:bbc7e36b75461c38869dcebfb3a9a3a7c69cbcdddb4613f8219eae87d16dd08e",
+    "source_fingerprint_at": 1794773767.731057
   },
   {
     "document_id": "mevzuat_40203",
@@ -4842,7 +5486,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "manual_pdf",
     "total_pages": 7,
-    "file_size": 507550
+    "file_size": 507550,
+    "source_fingerprint": "mevzuat-text-v1:35ecfdbaaa8367734372e6a3f22eae9f451458ecc577a3822f0696a8ea4ba76d",
+    "source_fingerprint_at": 1794773767.737228
   },
   {
     "document_id": "mevzuat_40519",
@@ -4857,7 +5503,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "manual_pdf",
     "total_pages": 8,
-    "file_size": 515166
+    "file_size": 515166,
+    "source_fingerprint": "mevzuat-text-v1:32769a0560e2520bc7696b634a2a350b7d11e99d15cb129f780b595ec8daf45b",
+    "source_fingerprint_at": 1794773767.7435524
   },
   {
     "document_id": "mevzuat_40520",
@@ -4872,7 +5520,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 6,
-    "file_size": 494812
+    "file_size": 494812,
+    "source_fingerprint": "mevzuat-text-v1:60c87ff509358bb1e5c500aceb79bb6712a9b67c2cf1cee9f1cce2244a1f8c38",
+    "source_fingerprint_at": 1794773767.757847
   },
   {
     "document_id": "mevzuat_42359",
@@ -4887,7 +5537,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "manual_pdf",
     "total_pages": 2,
-    "file_size": 144396
+    "file_size": 144396,
+    "source_fingerprint": "mevzuat-text-v1:49074b904aef12ab4867d67ecb1c9c2b191f2c21a32817ad96ed14db2efee16f",
+    "source_fingerprint_at": 1794773767.7779005
   },
   {
     "document_id": "mevzuat_42363",
@@ -4902,7 +5554,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "pdftotext_layout",
     "total_pages": 3,
-    "file_size": 39171
+    "file_size": 39171,
+    "source_fingerprint": "mevzuat-text-v1:cf7667ca46d24ba7a1388457b7b030a0260bafa08b2c933a118265ded1ce88df",
+    "source_fingerprint_at": 1794773767.7934878
   },
   {
     "document_id": "mevzuat_42628",
@@ -4917,7 +5571,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "manual_pdf+manual_latex",
     "total_pages": 5,
-    "file_size": 295909
+    "file_size": 295909,
+    "source_fingerprint": "mevzuat-text-v1:790e97097bd6ab9ede82ae3ff47b6c5f4450dbd327f2c98f412e87b80ff178d2",
+    "source_fingerprint_at": 1794773767.7835166
   },
   {
     "document_id": "mevzuat_5411",
@@ -4932,7 +5588,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "manual_pdf",
     "total_pages": 66,
-    "file_size": 471619
+    "file_size": 471619,
+    "source_fingerprint": "mevzuat-text-v1:f782ebeb6cff83a88698727b5e9b841255414e3e44ebd8ee82ad9f4ab3495898",
+    "source_fingerprint_at": 1794773767.849293
   },
   {
     "document_id": "mevzuat_5464",
@@ -4947,7 +5605,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "manual_pdf",
     "total_pages": 10,
-    "file_size": 107317
+    "file_size": 107317,
+    "source_fingerprint": "mevzuat-text-v1:99355d3d34d4d85a44c87b03464e72c0e4cbed9f18bedfa2040beb709630bf24",
+    "source_fingerprint_at": 1794773767.8119626
   },
   {
     "document_id": "mevzuat_6362",
@@ -4962,7 +5622,9 @@
     "extracted_at": 1778524399.189718,
     "extraction_method": "manual_pdf",
     "total_pages": 64,
-    "file_size": 443935
+    "file_size": 443935,
+    "source_fingerprint": "mevzuat-text-v1:1d2028fca048b394aed2aed1b2776f81d2f6fd5c97934940934aa3d3c8873ed5",
+    "source_fingerprint_at": 1794773767.8850722
   },
   {
     "document_id": "rg_32202_20230526_6",
@@ -4977,6 +5639,8 @@
     "extracted_at": 1775958680.9317913,
     "extraction_method": "manual_pdf",
     "total_pages": 4,
-    "file_size": 14069
+    "file_size": 14069,
+    "source_fingerprint": "",
+    "source_fingerprint_at": null
   }
 ]

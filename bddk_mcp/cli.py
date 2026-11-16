@@ -110,6 +110,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     check.add_argument("--corpus", help=corpus_help)
     check.add_argument("--json", action="store_true", help="Print the report as one JSON object")
+    check.add_argument(
+        "--deep",
+        action="store_true",
+        help=(
+            "Download every source and compare it with the source fingerprint the corpus stores (the bytes of a BDDK "
+            "file, the normalised official text of a mevzuat document) instead of the size and date signals"
+        ),
+    )
 
     return parser
 
@@ -219,17 +227,31 @@ async def _sync(args: argparse.Namespace) -> None:
 
 async def _check_updates(args: argparse.Namespace) -> None:
     """Report what the live site lists and serves that the corpus file does not hold; exit 0, 3 or 1."""
+    import sqlite3
+
     from bddk_mcp.ingest.client import BddkApiClient
     from bddk_mcp.ingest.update_check import check_updates, exit_code, format_report
-    from bddk_mcp.store.corpus_db import CorpusDB
+    from bddk_mcp.store.corpus_db import SCHEMA_VERSION, CorpusDB, unreadable_corpus_error
     from bddk_mcp.store.doc_store import DocumentStore
 
     db = CorpusDB.open(args.corpus, readonly=True)
     try:
+        try:
+            row = db.run_sync(
+                lambda conn: conn.execute("SELECT value FROM meta WHERE key = 'schema_version'").fetchone()
+            )
+        except sqlite3.DatabaseError as exc:
+            raise unreadable_corpus_error(exc) from exc
+        if row is None or row[0] != str(SCHEMA_VERSION):
+            found = row[0] if row is not None else "none"
+            raise RuntimeError(
+                f"the corpus file has schema version {found}, this runtime expects {SCHEMA_VERSION}; "
+                "delete it and run `bddk-mcp build`"
+            )
         store = DocumentStore(db)
         client = BddkApiClient(store=store)
         try:
-            report = await check_updates(store, client)
+            report = await check_updates(store, client, deep=args.deep)
         finally:
             await client.close()
     finally:

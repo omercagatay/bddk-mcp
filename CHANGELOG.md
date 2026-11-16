@@ -11,7 +11,7 @@ yorumlanmalıdır.
 Uygulama/paket sürümü, `v0001`–`v0011` adlı eski PostgreSQL migration
 sürümlerinden bağımsızdır. PostgreSQL backend'i ve migration'ları 2026-11-10'da
 kaldırıldı (Git etiketi `archive/postgres-2026-11-10`); güncel corpus sözleşmesi
-`meta` tablosundaki `SCHEMA_VERSION = 1` değeridir ve migration kaydı yoktur. Sürüm geçmişi:
+`meta` tablosundaki `SCHEMA_VERSION = 2` değeridir (2026-11-15'e kadar 1) ve migration kaydı yoktur. Sürüm geçmişi:
 
 - `1.0.0` ve `2.0.0`, Git'te gerçekten `v1.0.0` ve `v2.0.0` etiketiyle
   işaretlenmiş tek sürümlerdir. `v1.0.0` etiketindeki `pyproject.toml` paket
@@ -80,6 +80,172 @@ dosyasını ve seed'i açmaz. Onaylanan metin yine `scripts/patch_doc.py` ile sa
   yeniden üretti; `counts.json` yalnız `total_seconds`'ta farklı. GPU adımı
   repository sürümünden çalıştırılmadı; ssh komutları sahte bir ssh ile test
   edildi.
+
+### Değişti — bölüm araması: tanım ve formül soruları, "asgari ne kadar", çekim ekleri (2026-11-16)
+
+`search_document_sections` 71 cevaplanabilir denetim sorusunun 18'inde hükmü ilk
+ona getirmiyordu; bunlardan 7'si düzeldi (53/71'den 60/71'e). Corpus, şema, chunk,
+bölüm ayrıştırıcısı, `search_document_store` sıralaması ve katalog araması
+değişmedi; yeni tool ya da tool argümanı yok.
+
+**Müfettişin fark edeceği şeyler.**
+
+- Tanım isteyen soru ("tanım"/"tanımı", "demektir") ve formül isteyen soru
+  ("formül"/"formülü") önce terimi tanımlayan bölümleri listeler: başlığı terimin
+  kendisi olan madde ("Risk grubu", "Donuk alacaklar") ya da terimi satır başında
+  veya liste işaretinden sonra iki noktayla yazan bölüm ("a) Nitelikli pay: ...",
+  "Sermaye koruma tamponu (SKT): ..."). Kanun'un tanımı önce gelir (normlar
+  hiyerarşisi), TASLAK/MÜLGA belgedeki tanım öne alınmaz. Bu sonuçlar
+  `definition_match` ile ve bir "Match: DEFINITION" satırıyla işaretlenir; not,
+  sıralamanın orada rank sırasında olmadığını söyler. "nitelikli pay tanımı nedir"
+  Bankacılık Kanunu madde 3'ü 40. sıradan 1. sıraya, "sermaye yeterliliği standart
+  oranı formülü" formülü yazan tanımlar maddesini (madde 3) ilk sıraya aldı.
+- Soruda soru kelimesinin hemen önündeki "asgari"/"azami" ("asgari ne kadar",
+  "asgari yüzde kaç", "azami kaç") artık zorunlu kelime değil: hüküm sınırı "en
+  az", "... den az olamaz" ya da "aşamaz" diye yazar. Başka yerde terimin adıdır
+  ve zorunlu kalır ("asgari ödeme tutarı nedir", "azami vade kaç ay").
+- "formül"/"formülü" hiçbir zaman zorunlu kelime değil ("tanım" gibi): hüküm
+  formülü hesaplamanın kendisi olarak yazar ("... bölünmesi suretiyle hesaplanır").
+  Not, atlanan kelimeyi ve nedenini söyler.
+- Bölüm aramasının çekime dayanıklı geçişi çoğul bulunma ekini ("kredilerde" →
+  "kredi"*) ve "-ınca/-ince" ulacını ("gecikince" → "gecik"*, "geciken"i bulur)
+  da atar; `search_document_store`'un keyword geçişi eski eklerle kalır.
+
+**Ayrıntılar.**
+
+- Düzelen sorular: N01 (yok → 1), N04 (yok → 2), D04 (yok → 1), D06 (yok → 7),
+  F02 (yok → 10), F06 (yok → 1). Ayrıca D03 4 → 1, D08 4 → 2, J05 2 → 1.
+- Tanım adayları tek bir FTS sorgusuyla okunur; `DocumentStore.search_document_sections`
+  yeni `defining` ön süzgecini alır (terimin son kelimesi iki noktadan ya da açılan
+  parantezden hemen önce, ya da ilk kelimesiyle başlayan başlık; `content_norm` ve
+  `heading_norm` üzerinde LIKE), en çok 1000 aday. İlk sürüm ilk 200 kelime
+  eşleşmesini okuyordu ve "banka ne demektir"de Bankacılık Kanunu'nun "Banka:"
+  tanımını kaçırıyordu.
+- Tanım kuralının ilk sürümü, sorular başka biçimde sorulunca birincil hükmü
+  aşağı itiyordu ("risk grubu tanımı" Bankacılık Kanunu madde 49'u 7'den 10'a,
+  "donuk alacak tanımı" madde 5'i 8'den 9'a); başlık biçimi ve parantezli kısaltma
+  eklenince bu üç soru birincil hükmü ilk sıraya aldı.
+- Madde atfının hemen arkasında yazılan fıkra ("madde 12 üçüncü fıkra", "12 nci
+  maddenin 3 üncü fıkrası", "madde 12 fıkra 4") artık atfın parçası okunur; belge
+  adını ya da içerik kelimesini bozmaz. Maddenin tamamı döner ve not hangi fıkranın
+  okunacağını söyler. "Bankaların Kredi İşlemlerine İlişkin Yönetmelik madde 12
+  üçüncü fıkra" artık madde 12'yi 1. sırada veriyor. Maliyeti (bakımcının kararıyla
+  kabul edildi): bölüm cümle taramasında 900 numaralı belgenin "... Hakkında
+  Yönetmeliğin (Yönetmelik) 7 inci maddesinin birinci fıkrasında;" cümlesi artık
+  atıf yapılan yönetmeliğin madde 7'sine kapsanıyor ve kaynak belge ilk ondan
+  düşüyor (3 → yok). Aynı cümle fıkra kelimeleri olmadan önceden de böyle
+  okunuyordu; kural mevcut davranışı tutarlı hâle getiriyor. Ajan bu kuralı kabul
+  ölçütü yüzünden geri almıştı (commit 47e38da); bakımcı geri ekledi.
+- Denenen ve alınmayanlar: (1) Sorudaki her "asgari"/"azami"yi bırakmak
+  (denendi): "asgari ödeme tutarı nedir" Banka Kartları Yönetmeliği madde 24'ü 1.
+  sıradan 4.'ye indiriyor, "tüketici kredilerinde azami vade kaç ay" Kredi İşlemleri
+  Yönetmeliği madde 12'yi listeden düşürüyordu. Aşağıdakiler yalnız incelendi,
+  kurulmadı ve ölçülmedi: (2) corpus'ta hiç geçmeyen kelimeleri zorunlu saymamak:
+  konusu corpus'ta olmayan sorulardan MASAK, 12999 ve 11250'yi atıp yanıltıcı kelime
+  eşleşmeleri üretirdi. (3) Semantik yerin dolu listede de son kelime eşleşmesinin
+  yerini alması: B05, C01, C06, T05 ve T06'nın hükmü 10. sırada. (4)
+  `search_document_store`'un kısaltma glossary'sini bölüm aramasında kullanmak: tek
+  adayı J01'di ve J01'in hükmü "asgari" kelimesini taşımıyor (soru dışında zorunlu).
+  (5) Madde numarası olmadan belge adıyla kapsam ("Bankacılık Kanununa göre kredi"):
+  cümle taramasında başka belgeyi adlandıran cümleler ("... Yönetmeliğe göre", "...
+  Hakkında Yönetmelik çerçevesinde") kendi belgelerinden uzaklaşırdı.
+
+**Ölçüm** (332 belgelik corpus, gerçek embedding modeli, 78 denetim sorusu, her
+belgenin kendi başlığı, 267 cümle): bölüm aramasında hüküm hit@1 29'dan 35'e, hit@3
+37'den 44'e, hit@10 53'ten 60/71'e; belge hit@10 63'ten 65/71'e. `search_document_store`
+(belge hit@1 52, hit@10 68; hüküm hit@10 40), kendi başlığıyla 1. sıra (331/332),
+store cümle taraması ve 24 sağlamlık girdisi (0 sorun) değişmedi; bölüm cümle taramasında yalnızca yukarıdaki 900 cümlesi değişti; hiçbir soru dört
+ölçünün hiçbirinde kötüleşmedi. Konusu corpus'ta olmayan 7 sorunun sonuçları
+birebir aynı. Süre: 78 sorunun bölüm araması süresi ölçüm gürültüsünün içinde kaldı
+(aynı makinede dönüşümlü üç koşu: origin/main ortanca 189–192 ms, bu dal 158–188 ms).
+Tanım ya da formül isteyen sorgu bir FTS sorgusu ekler: belirli terimlerde 10–35 ms
+("nitelikli pay tanımı nedir" 14 → 34 ms, "risk grubu tanımı" 20 → 53 ms), çok
+yaygın tek kelimelik terimlerde 80–125 ms ("banka ne demektir" 40 → 163 ms, "kredi
+tanımı" 37 → 139 ms, "kurum tanımı" 32 → 126 ms; ön süzgeç her FTS eşleşmesinin
+metninde LIKE çalıştırır).
+
+**Yükseltme notu.** Yeniden derleme gerekmez. MCP sözleşmesi yalnızca eklemedir:
+`SectionItem.definition_match`; `query_words_not_searched` ve tool açıklaması yeni
+kelimeleri anlatır.
+
+### Eklendi — kaynak fingerprint'i ve `check-updates --deep` (2026-11-15)
+
+`check-updates` iki değişikliği göremiyordu: aynı boyutta başka bir dosyayla
+değiştirilmiş bir BDDK belgesini ve metne yeni tarih getirmeyen bir mevzuat.gov.tr
+değişikliğini (bir düzeltme, metnin zaten andığı bir tarihteki ikinci değişiklik).
+Corpus artık her belge için kaynağın bir fingerprint'ini saklıyor ve derin kontrol
+bu iki durumu da görüyor.
+
+- Schema sürümü 2: `documents` tablosuna `source_fingerprint`
+  (`<şema>:<SHA-256>`, kayıt yoksa boş) ve `source_fingerprint_at` (kaydedildiği
+  Unix zamanı) eklendi. `build` ve `export` bu iki alanı `seed_data/documents.json`
+  ile taşır, `scripts/patch_doc.py` onları `file_size` gibi korur; serving ve
+  readiness bu alanları okumaz.
+- İki fingerprint türü var. BDDK dosyasında indirilen baytların SHA-256'sı
+  (`file-sha256`). mevzuat.gov.tr metninde resmî konsolide metin sayfasının
+  (`MevzuatFihristDetayIframe`) normalize edilmiş görünür metninin SHA-256'sı
+  (`mevzuat-text-v1`): metin yalnız baytlardan çözülür (HTTP charset kullanılmaz),
+  script, style, noscript ve template öğeleri ile sync'in eklediği ek bloğu
+  çıkarılır, her boşluk dizisi tek boşluğa iner. İşaretleme, öznitelik, bağlantı ve
+  görsel hesaba girmez; yalnız görünen metnin değişmesi fingerprint'i değiştirir.
+- `sync`, `sync --doc-id` ve `sync --add` indirdiklerinin fingerprint'ini indirme
+  zamanıyla kaydeder. iframe dışındaki bir katmandan (PDF, `.htm`, Word) gelen
+  mevzuat metni başka bir kaynak olduğu için fingerprint almaz; önbellekteki
+  PDF'ten yeniden çıkarma hiçbir şey indirmediği için saklı fingerprint'i ve
+  tarihini korur.
+- `bddk-mcp check-updates --deep` her BDDK dosyasını indirir (en fazla 128 MB,
+  yanıt sync'teki gibi sınıflandırılır; bir HTML hata sayfası değişiklik değil,
+  hatadır) ve resmî mevzuat metnini fingerprint ile karşılaştırır. Tarih sinyali
+  derin modda da geçerlidir, çünkü metin çıkarıldıktan sonra kaydedilmiş bir
+  fingerprint o aradaki değişikliği göremez. `observed` derin modda kaynağın güncel
+  fingerprint'idir; kabul edilmiş bir değişiklik o kaynağa bağlanır ve sonraki bir
+  değişiklik yeniden raporlanır. Kabul kaydı yalnız `observed` değerinin ait
+  olduğu modda değerlendirilir (fingerprint derin modda, boyut ve tarih normal
+  modda, HTTP durumu ikisinde de). Fingerprint'i olmayan belge `no_fingerprint`
+  altında listelenir, hiçbir zaman değişmemiş sayılmaz (boyutu değişen BDDK dosyası
+  yine değişmiş sayılır); `not_checked` gibi exit code'u etkilemez. `--deep`
+  olmadan kontrol eskisi gibi çalışır. JSON rapora `deep` ve `no_fingerprint`
+  anahtarları eklendi; mevcut anahtarların hiçbiri değişmedi. Schema sürümü farklı
+  bir corpus dosyasında kontrol, hiçbir istek yapmadan çözümüyle birlikte exit 1
+  verir.
+- Seed'in baseline'ı (330 belge): 248 BDDK belgesinde 2026-11-14 22:46 UTC'deki
+  tazelik yoklamasında BDDK'nın sunduğu PDF'in SHA-256'sı; 2026-11-15'te eklenen 12
+  BDDK belgesinde sync'ten yaklaşık iki dakika sonra indirilen PDF'ler; 70 mevzuat
+  belgesinde 2026-11-15 20:16 UTC'de çekilen resmî metin (her sayfanın belgenin
+  kendisi olduğu, yani hata sayfası olmadığı, saklı metinle ortak bir tarih
+  taşıdığı ve ondan çok kısa olmadığı denetlendi). Bu baseline, saklı metnin o
+  baytlardan çıkarıldığının kanıtı değildir: eski belgelerde tek bağ, saklı
+  `file_size`'ın sunulan boyuta eşit olmasıdır. `source_fingerprint_at` bunu
+  gösterir; yalnız sync'in kaydettiği fingerprint'te `downloaded_at`'e eşittir.
+  `kgk_tms_12` ve `rg_32202_20230526_6` (host'ları allowlist dışında) fingerprint
+  taşımaz ve "not checked" kalır; allowlist genişletilmedi. 332 kaydın diğer
+  alanları `main` ile bayt bayt aynıdır, `seed_data/embeddings/` değişmedi; seed'den
+  yapılan build hiçbir chunk embed etmez ve export seed'i bayt bayt geri verir.
+  Build fingerprint'inin seed bölümü yeni alanlar yüzünden değişti.
+- Ölçüm (2026-11-15): normalizasyonun kararlılığı için 70 resmî metin 33 dakika
+  içinde altı kez çekildi (ikisi yoklama, biri sync yolundan, ana sayfa üzerinden,
+  sync'in kendi client'ı ve User-Agent'ı ile, üçü derin çalıştırmalarda); 70
+  fingerprint'in hepsi aynı kaldı (sync yolunda 69: `mevzuat_20145885`'in eski
+  `http://` kaynak adresini sync zaten reddediyor). 33 saniye arayla yapılan iki
+  çekim bayt bayt aynıydı; sync yolundan indirilen üç BDDK dosyası da seed'deki
+  fingerprint'i verdi. Seed'den kurulan corpus'a karşı 13 dakika içindeki üç derin
+  çalıştırmanın her biri 20-27 saniye sürdü, 338 yanıt ve 63,4 MB indirdi (normal
+  çalıştırma: 23 saniye, 13,9 MB; süreç içinde, sınırlı fetch etrafında sayıldı),
+  260 BDDK ve 70 mevzuat
+  kaynağını değişmemiş buldu, dört kabul edilmiş bulgu dışında bir şey raporlamadı
+  (exit 0) ve dosyanın SHA-256'sı değişmedi.
+- Derin kontrolün de göremedikleri: değişmeyen bir bağlantının arkasındaki ek
+  dosyası veya ZIP, dosyası değişen bir formül ya da tablo görseli, resmî metinde
+  yalnız işaretlemenin (bağlantı, öznitelik, stil) değişmesi, bir metnin çıkarılması
+  ile baseline'ın kaydı arasında tarih getirmeyen bir değişiklik, hâlâ listelenen
+  catalog kayıtlarının başlık, tarih veya kategori değişiklikleri ve allowlist
+  dışındaki host'ların belgeleri.
+- Yükseltme notu: schema değiştiği için 2026-11-15'ten önce kurulmuş yerel corpus
+  dosyası (schema sürümü 1) yazarlarca reddedilir, `serve` ve `bddk-mcp info` onu
+  hazır saymaz, `check-updates` exit 1 verir. Dosyayı silip `bddk-mcp build`
+  çalıştırın (sahibinin onayıyla); vektörler `seed_data/embeddings/`'ten gelir,
+  hiçbir chunk embed edilmez (2026-11-15'te 44 saniye). Container image yeni dosya
+  kurduğu için etkilenmez.
 
 ### Düzeltildi — sync önce PDF'in metin katmanını okur, model OCR yalnız taranmış PDF'te (2026-11-15)
 

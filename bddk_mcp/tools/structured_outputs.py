@@ -530,6 +530,18 @@ class SectionItem(StrictOutputModel):
             "the exact query words); such hits carry no rank and are listed after the strict hits."
         ),
     )
+    definition_match: bool = Field(
+        default=False,
+        description=(
+            "Whether this exact-word hit of a definition request (the query has 'tanım'/'tanımı' or 'demektir', or "
+            "'formül'/'formülü', since a ratio's formula is printed in its definition) "
+            "defines the searched term: its heading is the term ('Risk grubu', 'Donuk alacaklar'), or it prints the "
+            "term at the start of a line or after a list marker followed by a colon ('a) Nitelikli pay: ...', "
+            "'Sermaye koruma tamponu (SKT): ...'). Such hits are listed before the other hits, a Kanun's definition "
+            "first (one in a TASLAK/MÜLGA document is not lifted), so the ranks are not in order there; a definition "
+            "may only refer to another provision."
+        ),
+    )
     chunk_match: Literal["semantic"] | None = Field(
         default=None,
         description=(
@@ -643,8 +655,10 @@ class SectionSearchResponse(RetrievalResponse):
         default_factory=list,
         description=(
             "Query words that the exact-word and inflection-tolerant passes did not require: Turkish question "
-            "words, the frame words of a question (e.g. 'oluşur', 'demektir', 'kadar', 'en az'), 'yüzde' (optional because "
-            "sources also write '%') and 'tanım'/'tanımı' (a definition is written as the term and its meaning)."
+            "words, the frame words of a question (e.g. 'oluşur', 'demektir', 'kadar', 'en az', and 'asgari'/'azami' "
+            "right before its question word), 'yüzde' (optional because sources also write '%'), 'tanım'/'tanımı' "
+            "(a definition is written as the term and its meaning) and 'formül'/'formülü' (a formula is written as "
+            "the computation)."
         ),
     )
     results: list[SectionItem] = Field(default_factory=list, description="Ranked structural section matches.")

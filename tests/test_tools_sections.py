@@ -2080,6 +2080,225 @@ async def test_a_definition_question_finds_the_definition_by_its_words(doc_store
     assert first.get("rank") is not None and result.structuredContent["loose_fallback_used"] is False
 
 
+def test_asgari_and_azami_right_before_the_question_word_are_left_out():
+    from bddk_mcp.tools.sections import _required_search_text
+
+    assert _required_search_text("likidite karşılama oranı asgari ne kadar olmalı") == (
+        "likidite karşılama oranı",
+        ["asgari", "ne", "kadar", "olmalı"],
+    )
+    assert _required_search_text("kaldirac orani asgari yuzde kac") == ("kaldirac orani", ["asgari", "yuzde", "kac"])
+    assert _required_search_text("vade azami kaç gün") == ("vade gün", ["azami", "kaç"])
+    # Part of the name of what is asked, or not a question: content.
+    assert _required_search_text("asgari ödeme tutarı nedir") == ("asgari ödeme tutarı", ["nedir"])
+    assert _required_search_text("tüketici kredilerinde azami vade kaç ay") == (
+        "tüketici kredilerinde azami vade ay",
+        ["kaç"],
+    )
+    assert _required_search_text("oran asgari yüzde 15") == ("oran asgari 15", ["yüzde"])
+
+
+@pytest.mark.asyncio
+async def test_a_minimum_asked_with_asgari_finds_the_provision_that_writes_az_olamaz_and_says_why(doc_store):
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="mevzuat_19498",
+            title="Bankaların Likidite Karşılama Oranı Hesaplamasına İlişkin Yönetmelik",
+            markdown_content="MADDE 4 - Likidite karşılama oranı\n(1) Likidite karşılama oranı yüzde yüzden az olamaz.\n",
+        )
+    )
+    tool = _capture_tool(Dependencies(db=None, doc_store=doc_store, client=None, http=None), "search_document_sections")
+
+    result = await tool("likidite karşılama oranı asgari ne kadar olmalı")
+
+    first = result.structuredContent["results"][0]
+    assert (first["document_id"], first["section_ref"], first.get("rank") is not None) == ("mevzuat_19498", "4", True)
+    assert result.structuredContent["query_words_not_searched"] == ["asgari", "ne", "kadar", "olmalı"]
+    assert "'asgari'/'azami' right before the question word ask for the limit itself" in result.text
+
+
+def test_formul_is_never_a_required_word():
+    from bddk_mcp.tools.sections import _required_search_text
+
+    assert _required_search_text("likidite karşılama oranı hesaplama formülü") == (
+        "likidite karşılama oranı hesaplama",
+        ["formülü"],
+    )
+    assert _required_search_text("sermaye yeterliliği standart oranı formulu") == (
+        "sermaye yeterliliği standart oranı",
+        ["formulu"],
+    )
+    assert _required_search_text("formül") == ("formül", [])
+
+
+@pytest.mark.asyncio
+async def test_a_formula_asked_with_formulu_finds_the_computation_and_says_why(doc_store):
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="mevzuat_19498",
+            title="Bankaların Likidite Karşılama Oranı Hesaplamasına İlişkin Yönetmelik",
+            markdown_content=(
+                "MADDE 4 - Likidite karşılama oranı\n(1) Likidite karşılama oranı, yüksek kaliteli likit varlık "
+                "stokunun net nakit çıkışlarına bölünmesi suretiyle hesaplanır.\n"
+            ),
+        )
+    )
+    tool = _capture_tool(Dependencies(db=None, doc_store=doc_store, client=None, http=None), "search_document_sections")
+
+    result = await tool("likidite karşılama oranı formülü")
+
+    first = result.structuredContent["results"][0]
+    assert (first["document_id"], first["section_ref"], first.get("rank") is not None) == ("mevzuat_19498", "4", True)
+    assert result.structuredContent["query_words_not_searched"] == ["formülü"]
+    assert "'formül' is optional because a provision writes a formula as the computation itself" in result.text
+
+
+async def _store_definitions_fixture(doc_store) -> Dependencies:
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    documents = (
+        (
+            "mevzuat_10770",
+            "Konsolide Finansal Tablolar Yönetmeliği",
+            "Yönetmelik",
+            "MADDE 3 - Tanımlar\n(1) Bu Yönetmelikte geçen;\na) Nitelikli pay: Kanunda tanımlanan payı,\nifade eder.\n",
+        ),
+        (
+            "mevzuat_5411",
+            "5411 sayılı Bankacılık Kanunu",
+            "Kanun",
+            "MADDE 3 - Tanımlar\n(1) Bu Kanunda geçen;\na) Banka: Mevduat bankalarını, katılım bankalarını ve "
+            "kalkınma ve yatırım bankalarını,\nb) Nitelikli pay: Bir ortaklıkta doğrudan veya dolaylı olarak "
+            "sermayenin yüzde on veya daha fazlasını temsil eden payı,\nifade eder.\n",
+        ),
+        (
+            "mevzuat_99",
+            "Pay Edinimi Yönetmeliği Taslağı",
+            "Düzenleme Taslağı",
+            "MADDE 3 - Tanımlar\n(1) Nitelikli pay: taslaktaki tanım,\nifade eder.\n",
+        ),
+        (
+            "mevzuat_10746",
+            "İzne Tabi İşlemler Yönetmeliği",
+            "Yönetmelik",
+            "MADDE 10 - Nitelikli pay edinimi\n(1) Nitelikli pay edinimi izne tabidir; nitelikli pay devri de.\n",
+        ),
+    )
+    for doc_id, title, category, content in documents:
+        await doc_store.store_document(
+            StoredDocument(document_id=doc_id, title=title, category=category, markdown_content=content)
+        )
+    return Dependencies(db=None, doc_store=doc_store, client=None, http=None)
+
+
+@pytest.mark.asyncio
+async def test_a_definition_question_lists_the_sections_that_define_the_term_first_a_kanun_first(doc_store):
+    tool = _capture_tool(await _store_definitions_fixture(doc_store), "search_document_sections")
+
+    result = await tool("nitelikli pay tanımı nedir")
+
+    items = result.structuredContent["results"]
+    # The draft's definition is not lifted: TASLAK/MÜLGA sections follow the others.
+    assert [(item["document_id"], item["definition_match"]) for item in items] == [
+        ("mevzuat_5411", True),
+        ("mevzuat_10770", True),
+        ("mevzuat_10746", False),
+        ("mevzuat_99", False),
+    ]
+    assert all(item.get("rank") is not None for item in items)
+    assert "Match: DEFINITION: the section's heading is the searched term, or it prints the term" in result.text
+    assert (
+        "Note: 2 section(s) that define the searched term (their heading is the term, or they print it followed "
+        "by a colon) are listed first, a Kanun's before the others; the other hits follow in their FTS rank "
+        "order." in result.text
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_definition_is_also_a_heading_that_is_the_term_or_the_term_with_its_abbreviation(doc_store):
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    for doc_id, category, content in (
+        (
+            "mevzuat_40520",
+            "Yönetmelik",
+            "MADDE 3 - Tanımlar\n(1) h) Risk grubu: Kanunun 49 uncu maddesindeki risk grubunu,\n",
+        ),
+        (
+            "mevzuat_5411",
+            "Kanun",
+            "MADDE 49 - Risk grubu\n(1) Bir kişi ile ilişkili kişiler bir risk grubu oluşturur.\n",
+        ),
+        ("mevzuat_18991", "Yönetmelik", "MADDE 3 - Tanımlar\n(1) i) Risk grubu (RG): ilave risk grubu tanımı,\n"),
+        (
+            "1041",
+            "Rehber",
+            "MADDE 9 - Personel\n(1) Risk grubu ile çalışan risk grubu personeli risk grubu raporu hazırlar.\n",
+        ),
+    ):
+        await doc_store.store_document(
+            StoredDocument(document_id=doc_id, title="T", category=category, markdown_content=content)
+        )
+    tool = _capture_tool(Dependencies(db=None, doc_store=doc_store, client=None, http=None), "search_document_sections")
+
+    result = await tool("risk grubu ne demektir")
+
+    found = [(item["document_id"], item["definition_match"]) for item in result.structuredContent["results"]]
+    # The Kanun's article whose heading is the term first, then the regulations' definitions in rank order.
+    assert found[0] == ("mevzuat_5411", True)
+    assert set(found[1:3]) == {("mevzuat_40520", True), ("mevzuat_18991", True)}
+    assert found[3:] == [("1041", False)]
+
+
+@pytest.mark.asyncio
+async def test_a_formula_request_lists_the_definition_that_prints_the_formula_first(doc_store):
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    for doc_id, content in (
+        (
+            "mevzuat_18991",
+            "MADDE 4 - Tampon\n(1) Sermaye yeterliliği standart oranı sermaye yeterliliği standart oranı ile "
+            "birlikte izlenir.\n",
+        ),
+        (
+            "mevzuat_21192",
+            "MADDE 3 - Tanımlar\n(1) Bu Yönetmelikte geçen;\nnnn) Sermaye yeterliliği standart oranı: Konsolide "
+            "olmayan bazda hesaplanan “özkaynak/(kredi riskine esas tutar + piyasa riskine esas tutar)” standart "
+            "oranını,\nifade eder.\n",
+        ),
+    ):
+        await doc_store.store_document(
+            StoredDocument(document_id=doc_id, title="Yönetmelik", category="Yönetmelik", markdown_content=content)
+        )
+    tool = _capture_tool(Dependencies(db=None, doc_store=doc_store, client=None, http=None), "search_document_sections")
+
+    formula = await tool("sermaye yeterliliği standart oranı formülü")
+    plain = await tool("sermaye yeterliliği standart oranı")
+
+    assert [(item["document_id"], item["definition_match"]) for item in formula.structuredContent["results"]] == [
+        ("mevzuat_21192", True),
+        ("mevzuat_18991", False),
+    ]
+    assert plain.structuredContent["results"][0]["document_id"] == "mevzuat_18991"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("query", ["nitelikli pay nedir", "nitelikli pay devri tanımı"])
+async def test_without_a_definition_word_or_a_term_defined_nothing_is_lifted(doc_store, query):
+    tool = _capture_tool(await _store_definitions_fixture(doc_store), "search_document_sections")
+
+    result = await tool(query)
+
+    items = result.structuredContent["results"]
+    assert items[0]["document_id"] == "mevzuat_10746"
+    assert not any(item["definition_match"] for item in items)
+    assert "Match: DEFINITION" not in result.text
+
+
 def test_tanim_is_never_a_required_word():
     from bddk_mcp.tools.sections import _required_search_text
 
@@ -3144,6 +3363,50 @@ async def test_an_instrument_named_by_words_scopes_its_section_reference(doc_sto
     assert structured["inferred_document_filter_applied"] is True
     assert f"Note: the search was limited to document {doc_id} (" in result.text
     assert "match its title and no other stored title as well" in result.text
+
+
+def test_a_fikra_right_after_an_article_reference_is_read_as_part_of_it():
+    from bddk_mcp.store.legal_ref import parse_legal_refs
+    from bddk_mcp.tools.sections import _fikra_spans
+
+    def read(query: str) -> list[tuple[str, str]]:
+        return [(query[start:stop], ref) for start, stop, _, ref in _fikra_spans(query, parse_legal_refs(query))]
+
+    assert read("Kredi Yönetmelik madde 12 üçüncü fıkra") == [(" üçüncü fıkra", "3")]
+    assert read("Kredi Yönetmeliğinin 12 nci maddesinin on birinci fıkrası") == [(" on birinci fıkrası", "11")]
+    assert read("madde 12'nin 3 üncü fıkrası") == [("'nin 3 üncü fıkrası", "3")]
+    assert read("MADDE 12 İKİNCİ FIKRA") == [(" İKİNCİ FIKRA", "2")]
+    assert read("madde 12 ucuncu fikra") == [(" ucuncu fikra", "3")]
+    assert read("madde 12 fıkra 4 kredi") == [(" fıkra 4", "4")]
+    assert read("madde 12, 2. fıkrası") == [(", 2. fıkrası", "2")]
+    # Not beside an article reference, or not a fıkra: nothing is read.
+    assert read("üçüncü fıkra kredi madde 12") == []
+    assert read("madde 12 üçüncü kişiler") == []
+    assert read("paragraf 12 üçüncü fıkra") == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "query",
+    [
+        "Bankaların Kredi İşlemlerine İlişkin Yönetmelik madde 5 üçüncü fıkra",
+        "Kredi İşlemleri Yönetmeliğinin 5 inci maddesinin 3 üncü fıkrası",
+    ],
+)
+async def test_an_ordinal_fikra_beside_an_article_reference_keeps_the_instrument_and_says_so(doc_store, query):
+    tool = _capture_tool(await _store_named_instruments(doc_store), "search_document_sections")
+
+    result = await tool(query)
+
+    structured = result.structuredContent
+    first = structured["results"][0]
+    assert (first["document_id"], first["section_type"], first["section_ref"]) == ("mevzuat_40520", "madde", "5")
+    assert (structured["document_id"], structured["exact_reference_detected"]) == ("mevzuat_40520", True)
+    note = (
+        "Note: fıkra 3 in the query was read as part of the reference to madde 5: the whole article is returned "
+        "(fıkra rows are not unique addresses); read fıkra 3 in it."
+    )
+    assert note in result.text and note in structured["warnings"]
 
 
 @pytest.mark.asyncio

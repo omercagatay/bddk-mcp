@@ -94,6 +94,12 @@ _SEMANTIC_MATCH_LINE = (
     "this section among its strong or moderate hits; the section need not hold the query words; no rank, listed "
     "after the section matches"
 )
+_DEFINITION_MATCH_LINE = (
+    "Match: DEFINITION: the section's heading is the searched term, or it prints the term at the start of a line "
+    "or after a list marker followed by a colon (the form of a definitions article), and it holds every searched "
+    "word; listed before the other hits, a Kanun's definition first. Read it: a definition that only refers to "
+    "another provision names that provision"
+)
 _SEMANTIC_WARNING = (
     "Hits marked chunk_match 'semantic' come from the embedding model, not from the query words: they are leads, "
     "not exact-word matches; read the provision before citing it."
@@ -235,6 +241,9 @@ _QUERY_PERCENT_WORDS = frozenset({"yüzde", "yuzde"})
 # A definition is written as the term and its meaning ("Nitelikli pay: ..."), so "tanım"/"tanımı" ("nitelikli pay
 # tanımı") is never a required word either.
 _QUERY_DEFINITION_WORDS = frozenset({"tanım", "tanımı"})
+# A provision writes a formula as the computation itself ("... bölünmesi suretiyle hesaplanır", "özkaynak/(...)"),
+# not with the word, so "formül"/"formülü" is never a required word either.
+_QUERY_FORMULA_WORDS = frozenset({"formül", "formülü"})
 
 _LOOSE_SECTION_SEARCH_STOPWORDS = (
     _QUERY_QUESTION_WORDS
@@ -267,6 +276,11 @@ _NORMALIZED_QUESTION_WORDS = frozenset(normalize_search_text(word) for word in _
 _NORMALIZED_QUESTION_FRAME_WORDS = frozenset(normalize_search_text(word) for word in _QUESTION_FRAME_WORDS)
 _NORMALIZED_PERCENT_WORDS = frozenset(normalize_search_text(word) for word in _QUERY_PERCENT_WORDS)
 _NORMALIZED_DEFINITION_WORDS = frozenset(normalize_search_text(word) for word in _QUERY_DEFINITION_WORDS)
+_NORMALIZED_FORMULA_WORDS = frozenset(normalize_search_text(word) for word in _QUERY_FORMULA_WORDS)
+# "asgari"/"azami" right before the question word of a question ("asgari ne kadar", "asgari yüzde kaç") ask for
+# the limit itself, as "en az" does: the provision may write it "en az", "... den az olamaz" or "aşamaz". Elsewhere
+# they are content ("asgari ödeme tutarı nedir", "azami vade kaç ay").
+_NORMALIZED_LIMIT_WORDS = frozenset({"asgari", "azami"})
 _NORMALIZED_LOOSE_STOPWORDS = frozenset(normalize_search_text(word) for word in _LOOSE_SECTION_SEARCH_STOPWORDS)
 # Standalone FTS on these floods IPC / generic-ratio articles and crowds out
 # the provision that actually contains the distinctive tokens.
@@ -1131,22 +1145,29 @@ def _strip_format_chars(text: str) -> str:
 def _required_search_text(query: str) -> tuple[str, list[str]]:
     """Return the query text the exact-word and stem passes require, and the words left out.
 
-    Question words are left out, and in a question also its frame words ("oluşur", "yapılır"); so are
-    "yüzde" (a source may write "%" instead) and "tanım"/"tanımı" (a definition is the term and its meaning).
+    Question words are left out, and in a question also its frame words ("oluşur", "yapılır") and
+    "asgari"/"azami" right before its question word; so are "yüzde" (a source may write "%" instead),
+    "tanım"/"tanımı" (a definition is the term and its meaning) and "formül"/"formülü" (a formula is written
+    as the computation).
     When nothing would remain, every word is kept: a word is never dropped when it is the only one.
     """
     words = re.findall(r"\w+", query, flags=re.UNICODE)
-    question = "?" in query or any(normalize_search_text(word) in _NORMALIZED_QUESTION_WORDS for word in words)
+    folded = [normalize_search_text(word) for word in words]
+    question = "?" in query or any(word in _NORMALIZED_QUESTION_WORDS for word in folded)
     not_required = (
         _NORMALIZED_QUESTION_WORDS
         | _NORMALIZED_PERCENT_WORDS
         | _NORMALIZED_DEFINITION_WORDS
+        | _NORMALIZED_FORMULA_WORDS
         | (_NORMALIZED_QUESTION_FRAME_WORDS if question else frozenset())
     )
     kept: list[str] = []
     dropped: list[str] = []
-    for word in words:
-        (dropped if normalize_search_text(word) in not_required else kept).append(word)
+    for index, word in enumerate(words):
+        # The next word, "yüzde" skipped ("asgari yüzde kaç").
+        following = next((later for later in folded[index + 1 :] if later not in _NORMALIZED_PERCENT_WORDS), "")
+        limit_word = question and folded[index] in _NORMALIZED_LIMIT_WORDS and following in _NORMALIZED_QUESTION_WORDS
+        (dropped if folded[index] in not_required or limit_word else kept).append(word)
     if not kept or not dropped:
         return query, []
     return " ".join(kept), dropped
@@ -1169,6 +1190,53 @@ def _loose_section_score(section: StoredDocumentSection, terms: list[str], weigh
     return score
 
 
+_ORDINAL_UNITS = ("birinci", "ikinci", "üçüncü", "dördüncü", "beşinci", "altıncı", "yedinci", "sekizinci", "dokuzuncu")
+# "üçüncü" -> 3, "on birinci" -> 11, "yirminci" -> 20: the fıkra numbers a query writes as words.
+_ORDINAL_WORDS = {
+    **{word: index for index, word in enumerate(_ORDINAL_UNITS, 1)},
+    **{f"on {word}": 10 + index for index, word in enumerate(_ORDINAL_UNITS, 1)},
+    "onuncu": 10,
+    "yirminci": 20,
+}
+
+
+def _letters_with_or_without_diacritics(word: str) -> str:
+    """A pattern of ``word`` that also matches it typed without Turkish letters ("üçüncü", "ucuncu")."""
+    classes = {"ç": "[cç]", "ğ": "[gğ]", "ı": "[ıi]", "ö": "[oö]", "ş": "[sş]", "ü": "[uü]"}
+    return "".join(classes.get(char, re.escape(char)) for char in word)
+
+
+_ORDINAL_WORD_PATTERNS = {
+    _letters_with_or_without_diacritics(word).replace(r"\ ", r"\s+"): number for word, number in _ORDINAL_WORDS.items()
+}
+# A fıkra right after an article reference, on the Turkish-casefolded query: "madde 12 üçüncü fıkra", "12 nci
+# maddenin 3 üncü fıkrası", "madde 12'nin 2. fıkrası", "madde 12 fıkra 4".
+_FIKRA_AFTER_ARTICLE_RE = re.compile(
+    r"(?:['’]\w+)?\s*,?\s*(?:(?P<word>"
+    + "|".join(sorted(_ORDINAL_WORD_PATTERNS, key=len, reverse=True))
+    + r")|(?P<digits>\d+)(?:\.|\s*['’]?\s*(?:inci|ıncı|uncu|üncü|nci|ncı|ncu|ncü)))\s+f[ıi]kra\w*"
+    r"|\s+f[ıi]kra\w*\s+(?P<after>\d+)\b"
+)
+
+
+def _fikra_spans(query: str, refs) -> list[tuple[int, int, str, str]]:
+    """The fıkra written right after each article reference of ``refs`` (parsed from ``query``), as (start, end,
+    "fikra", number). It is part of that reference: never an instrument or content word. A fıkra is not looked
+    up on its own (fıkra rows are not unique addresses): the whole article is returned."""
+    folded = turkish_casefold(query)
+    spans: list[tuple[int, int, str, str]] = []
+    for _, stop, section_type, _ in refs.section_spans:
+        if section_type not in _ARTICLE_TYPES or (match := _FIKRA_AFTER_ARTICLE_RE.match(folded, stop)) is None:
+            continue
+        if match.group("word"):
+            word = " ".join(match.group("word").split())
+            number = next(n for pattern, n in _ORDINAL_WORD_PATTERNS.items() if re.fullmatch(pattern, word))
+        else:
+            number = int(match.group("digits") or match.group("after"))
+        spans.append((stop, match.end(), "fikra", str(number)))
+    return spans
+
+
 def _without_spans(text: str, spans: list[tuple[int, int, str, str]]) -> str:
     """``text`` without the parsed section-reference spans, whitespace collapsed."""
     parts: list[str] = []
@@ -1179,6 +1247,58 @@ def _without_spans(text: str, spans: list[tuple[int, int, str, str]]) -> str:
             end = stop
     parts.append(text[end:])
     return " ".join(" ".join(parts).split())
+
+
+# A definition request: "tanım"/"tanımı" or "demektir" among the words not searched; also a formula request
+# ("formül"/"formülü"), because a ratio's formula is printed in its definition ("Sermaye yeterliliği standart
+# oranı: ... “özkaynak/(...)” standart oranını").
+_NORMALIZED_DEFINITION_REQUEST_WORDS = _NORMALIZED_DEFINITION_WORDS | {"demektir"} | _NORMALIZED_FORMULA_WORDS
+# How many exact-word hits that may define the term (the document store's ``defining`` prefilter) are read.
+_DEFINITION_CANDIDATES = 1000
+
+
+def _defines(section: StoredDocumentSection, words: list[str]) -> bool:
+    """Whether ``section`` defines the term of ``words`` (search form): its heading is the term, each word
+    possibly inflected ("Risk grubu", "Donuk alacaklar"), or it prints the term at the start of a line or after a
+    list marker ("a) ", "(1) "), followed by a colon, with an abbreviation in parentheses allowed before it
+    ("Nitelikli pay: ...", "Sermaye koruma tamponu (SKT): ...")."""
+    heading = re.findall(r"\w+", normalize_search_text(section.heading or ""))
+    if len(heading) == len(words) and all(word.startswith(term) for word, term in zip(heading, words, strict=True)):
+        return True
+    pattern = r"(?:^|\)\s*)" + r"[^\w:]+".join(map(re.escape, words)) + r"\s*(?:\([^)\n]*\)\s*)?:"
+    return re.search(pattern, normalize_search_text(section.content), re.MULTILINE) is not None
+
+
+async def _definition_sections(
+    deps: Dependencies,
+    term: str,
+    *,
+    document_id: str | None,
+    section_type: str | None,
+    classes_last: frozenset[str],
+) -> list[StoredDocumentSection]:
+    """The exact-word hits of ``term`` that define it (``_defines``), a Kanun's first (the norm hierarchy: a
+    regulation's definition derives from the law's), otherwise in FTS rank order. A definition in a document of
+    a catalog class in ``classes_last`` (TASLAK/MÜLGA unless the query names it) is not lifted."""
+    words = re.findall(r"\w+", normalize_search_text(term))
+    if not words:
+        return []
+    candidates = await deps.doc_store.search_document_sections(
+        term,
+        document_id=document_id,
+        section_type=section_type,
+        limit=_DEFINITION_CANDIDATES,
+        include_source_range=False,
+        defining=term,
+    )
+    not_lifted = classes_last if document_id is None else frozenset()
+    found = [
+        section
+        for section in candidates
+        if catalog_status_class(section.document_category) not in not_lifted and _defines(section, words)
+    ]
+    found.sort(key=lambda section: section.document_category != "Kanun")
+    return await deps.doc_store.hydrate_source_ranges(found) if found else []
 
 
 async def _semantic_sections(
@@ -1663,15 +1783,27 @@ def register(mcp, deps: Dependencies) -> None:
         used to gate low-confidence retrieval.
 
         Turkish question words (kaç, nedir, nasıl, mi ...), in a question also its
-        frame words (oluşur, yapılır, demektir, kadar, en az ...), "yüzde"
-        (sources also write "%") and "tanım"/"tanımı" (a definition is the term
-        and its meaning) are
+        frame words (oluşur, yapılır, demektir, kadar, en az ...) and "asgari"/
+        "azami" right before its question word ("asgari ne kadar", "azami kaç"),
+        "yüzde" (sources also write "%"), "tanım"/"tanımı" (a definition is the
+        term and its meaning) and "formül"/"formülü" (a formula is written as the
+        computation) are
         not required words; the answer lists them under "not searched". Invisible
         format characters are ignored.
 
+        A definition request ("tanım"/"tanımı", "demektir", or "formül"/"formülü",
+        since a ratio's formula is printed in its definition) lists first the
+        exact-word hits that define the searched term: their heading is the term
+        ("Risk grubu", "Donuk alacaklar"), or they print it at the start of a
+        line or after a list marker followed by a colon ("a) Nitelikli pay:
+        ...", "Sermaye koruma tamponu (SKT): ..."). A Kanun's definition comes
+        before the others, one in a TASLAK/MÜLGA document is not lifted; they are
+        marked `definition_match` and the other hits follow in rank order.
+
         When the exact-word pass returns fewer than `limit` hits, it is topped up
         with an inflection-tolerant pass (word roots and prefixes, e.g. "süresi"
-        also finds "süresinin", "denetlenmesi" also finds "denetimi"). Those hits
+        also finds "süresinin", "denetlenmesi" also finds "denetimi", "kredilerde"
+        also finds "kredi", "gecikince" also finds "geciken"). Those hits
         follow the exact-word hits, carry no rank and are marked `stem_match`. The
         loose token fallback runs when both passes find nothing, and also when
         every hit is an inflection-tolerant one; its hits then follow them.
@@ -1712,6 +1844,13 @@ def register(mcp, deps: Dependencies) -> None:
         note names it by its title. When no title stands out, nothing is
         scoped and the note names the candidates (at most five); an
         abbreviation that is not a title word (SYR, İSEDES) identifies nothing.
+        A fıkra written right after the article reference (`madde 12 üçüncü
+        fıkra`, `12 nci maddenin 3 üncü fıkrası`, `madde 12 fıkra 4`) is read as
+        part of that reference, not as an instrument or content word: the whole
+        article is returned and a note names the fıkra to read in it.
+        A fıkra written right after an article reference ("madde 12 üçüncü
+        fıkra", "12 nci maddenin 3 üncü fıkrası") is part of that reference: the
+        whole article is returned and a note names the fıkra to read in it.
         """
         # Invisible format characters (soft hyphen, zero-width space) split words: never search them.
         # Control characters (NUL ...) separate words. The query is echoed as given, except that a
@@ -1741,7 +1880,22 @@ def register(mcp, deps: Dependencies) -> None:
         # search like a document number, as a preference; titles that stand equally are named in the note.
         title_entry = None
         tied_titles: list = []
-        instrument_words = _required_search_text(_without_spans(search_query, refs.section_spans))[0]
+        # A fıkra right after an article reference ("madde 12 üçüncü fıkra") is part of that reference.
+        fikra_spans = _fikra_spans(search_query, refs)
+        fikra_note = next(
+            (
+                f"Note: fıkra {fikra_ref} in the query was read as part of the reference to "
+                f"{_ref_text(section_type_, section_ref_)}: the whole article is returned (fıkra rows are not unique "
+                f"addresses); read fıkra {fikra_ref} in it."
+                for _, stop, section_type_, section_ref_ in refs.section_spans
+                for fikra_start, _, _, fikra_ref in fikra_spans
+                if fikra_start == stop
+            ),
+            None,
+        )
+        instrument_words = _required_search_text(
+            _without_spans(search_query, sorted(refs.section_spans + fikra_spans))
+        )[0]
         if not document_id and not query_doc_id and parsed_refs and deps.client is not None:
             identified = identify_instrument(deps.client.get_cache_items(), instrument_words)
             if len(identified) == 1 and await _any_document_stored(deps, identified[0].document_id):
@@ -1799,6 +1953,23 @@ def register(mcp, deps: Dependencies) -> None:
             limit=limit,
             classes_last=classes_last,
         )
+        # A definition request lists the exact-word hits that define the searched term first.
+        definition_keys: set[tuple[str, str, str, str]] = set()
+        if (
+            not exact_hits
+            and any(hit.rank is not None for hit in hits)
+            and any(normalize_search_text(word) in _NORMALIZED_DEFINITION_REQUEST_WORDS for word in not_searched)
+        ):
+            definitions = await _definition_sections(
+                deps,
+                required_scoped_query,
+                document_id=hits[0].doc_id if inferred_doc_id else None,
+                section_type=applied_section_type,
+                classes_last=classes_last,
+            )
+            definition_keys = {_section_key(section) for section in definitions[:limit]}
+            hits = (definitions + [hit for hit in hits if _section_key(hit) not in definition_keys])[:limit]
+            stem_keys -= definition_keys
         loose_fallback_used = False
         # Set when the inferred document is stored but the exact provision named in the query is not in it.
         missing_in_dropped_doc: str | None = None
@@ -1938,6 +2109,13 @@ def register(mcp, deps: Dependencies) -> None:
         percent_rule = "; 'yüzde' is optional because sources also write '%'" if percent_query else ""
         if any(normalize_search_text(word) in _NORMALIZED_DEFINITION_WORDS for word in not_searched):
             percent_rule += "; 'tanım' is optional because a definition is written as the term and its meaning"
+        if any(normalize_search_text(word) in _NORMALIZED_FORMULA_WORDS for word in not_searched):
+            percent_rule += "; 'formül' is optional because a provision writes a formula as the computation itself"
+        if any(normalize_search_text(word) in _NORMALIZED_LIMIT_WORDS for word in not_searched):
+            percent_rule += (
+                "; 'asgari'/'azami' right before the question word ask for the limit itself, which a provision may "
+                "write as 'en az', 'az olamaz' or 'aşamaz'"
+            )
         not_searched_note = (
             f"Note: not searched as required words: {', '.join(not_searched)} (Turkish question words and the "
             f"frame words of a question are left out{percent_rule}).\n"
@@ -1981,6 +2159,7 @@ def register(mcp, deps: Dependencies) -> None:
                 + filter_note
                 + not_searched_note
                 + (f"{unapplied_ref_note}\n" if unapplied_ref_note else "")
+                + (f"{fikra_note}\n" if fikra_note else "")
                 + (f"{annex_notice}\n" if annex_notice else "")
                 + f"Try a broader query, {remove_hint}or retrieve the full document."
             )
@@ -1995,7 +2174,7 @@ def register(mcp, deps: Dependencies) -> None:
                     parsed_section_ref=_normalize_optional(inferred_section_ref),
                     exact_reference_detected=exact_ref_detected,
                     loose_fallback_used=False,
-                    warnings=[note for note in (unapplied_ref_note, annex_notice) if note],
+                    warnings=[note for note in (unapplied_ref_note, fikra_note, annex_notice) if note],
                     inferred_document_filter_dropped=filter_dropped,
                     query_words_not_searched=not_searched,
                 )
@@ -2004,6 +2183,16 @@ def register(mcp, deps: Dependencies) -> None:
         continuations = await _find_continuations(deps, hits)
         parents = await _find_parents(deps, hits)
         lines = [f"Found {len(hits)} section result(s) for '{echoed_query}':\n"]
+        listed_definitions = sum(1 for hit in hits if _section_key(hit) in definition_keys)
+        if listed_definitions:
+            lines.insert(
+                0,
+                f"Note: {listed_definitions} section(s) that define the searched term (their heading is the term, or "
+                "they print it followed by a colon) are listed first, a Kanun's before the others; the other hits "
+                "follow in their FTS rank order.\n",
+            )
+        if fikra_note:
+            lines.insert(0, f"{fikra_note}\n")
         if unapplied_ref_note:
             lines.insert(0, f"{unapplied_ref_note}\n")
         if not_searched_note:
@@ -2035,6 +2224,8 @@ def register(mcp, deps: Dependencies) -> None:
                 # "relative" guards against conflation with the percent-scale
                 # relevance gate in the server instructions (store search).
                 lines.append(f"  Match rank: {hit.rank:.4f} (relative, FTS)")
+            if _section_key(hit) in definition_keys:
+                lines.append(f"  {_DEFINITION_MATCH_LINE}")
             if _section_key(hit) in chunk_keys:
                 lines.append(f"  {_SEMANTIC_MATCH_LINE}")
             if _section_key(hit) in stem_keys:
@@ -2056,6 +2247,7 @@ def register(mcp, deps: Dependencies) -> None:
             _with_parent(_section_item(hit, query=search_query, continuations=continuations), hit, parents).model_copy(
                 update={
                     "stem_match": _section_key(hit) in stem_keys,
+                    "definition_match": _section_key(hit) in definition_keys,
                     "chunk_match": "semantic" if _section_key(hit) in chunk_keys else None,
                 }
             )
@@ -2080,6 +2272,7 @@ def register(mcp, deps: Dependencies) -> None:
                         else []
                     ),
                     *([unapplied_ref_note] if unapplied_ref_note else []),
+                    *([fikra_note] if fikra_note else []),
                     *(
                         [
                             "Loose token fallback was used: results may match only part of the query. "

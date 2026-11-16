@@ -419,3 +419,23 @@ async def test_patch_keeps_the_size_of_the_downloaded_source(tmp_path, stores):
 
     assert (await stores[0].get_document(DOC_ID)).file_size == 108_139
     assert json.loads((seed_dir / "documents.json").read_text(encoding="utf-8"))[0]["file_size"] == 108_139
+
+
+async def test_patch_keeps_the_source_fingerprint_and_its_date(tmp_path, stores):
+    """The fingerprint describes the downloaded source, which a text repair does not change."""
+    fingerprint = "file-sha256:" + "b" * 64
+    seed_entry = _seed_doc_entry(DOC_ID)
+    seed_entry.update(source_fingerprint=fingerprint, source_fingerprint_at=1_700_000_000.0)
+    seed_dir = _write_seed_dir(tmp_path, [seed_entry])
+    stored = _stored_doc(DOC_ID)
+    stored.source_fingerprint, stored.source_fingerprint_at = fingerprint, 1_700_000_000.0
+    await stores[0].store_document(stored)
+    md = tmp_path / "body.md"
+    md.write_text("new corrected body\n", encoding="utf-8")
+
+    await _patch(stores, seed_dir, md)
+
+    patched = await stores[0].get_document(DOC_ID)
+    assert (patched.source_fingerprint, patched.source_fingerprint_at) == (fingerprint, 1_700_000_000.0)
+    (entry,) = json.loads((seed_dir / "documents.json").read_text(encoding="utf-8"))
+    assert (entry["source_fingerprint"], entry["source_fingerprint_at"]) == (fingerprint, 1_700_000_000.0)

@@ -493,6 +493,66 @@ async def test_prefix_stem_section_search_matches_inflected_forms(doc_store):
     assert await doc_store.search_document_sections("faiz", prefix_stem=True) == []
 
 
+def test_section_stem_also_removes_a_plural_locative_and_a_converb_ending_and_the_store_form_does_not():
+    from bddk_mcp.store.doc_store import fts_prefix_stem_query
+
+    cases = {
+        "kredilerde": '"kredi"*',
+        "bankalarda": '"banka"*',
+        "gecikince": '"gecik"*',
+        "uygulanınca": '"uygulan"*',
+        "bulununca": '"bulun"*',
+        "görülünce": '"gorul"*',
+        # The root floor still holds.
+        "olunca": '"olunca"*',
+        "ellerde": '"ellerde"*',
+    }
+    assert {word: fts_prefix_stem_query(word, section_endings=True) for word in cases} == cases
+    # The expression of search_document_store's keyword pass is unchanged.
+    assert fts_prefix_stem_query("kredilerde gecikince") == '"kredilerde"* "gecikince"*'
+
+
+@pytest.mark.asyncio
+async def test_prefix_stem_section_search_matches_a_plural_locative_and_a_converb(doc_store):
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="1",
+            title="T",
+            markdown_content="MADDE 5 - Donuk alacaklar\nKredi ödemesi doksan günden fazla geciken alacaklar.\n",
+        )
+    )
+
+    assert await doc_store.search_document_sections("kredilerde gecikince") == []
+    hits = await doc_store.search_document_sections("kredilerde gecikince", prefix_stem=True)
+    assert [(h.doc_id, h.section_type, h.section_ref) for h in hits] == [("1", "madde", "5")]
+
+
+@pytest.mark.asyncio
+async def test_section_search_can_keep_only_the_sections_that_may_define_a_term(doc_store):
+    from bddk_mcp.store.doc_store import StoredDocument
+
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="1",
+            title="T",
+            markdown_content=(
+                "MADDE 3 - Tanımlar\na) Nitelikli pay: payı,\n\nMADDE 4 - Pay\nNitelikli PAY : payı.\n\n"
+                "MADDE 5 - Edinim\nNitelikli pay edinimi izne tabidir: Kurul karar verir.\n\n"
+                "MADDE 6 - Kısaltma\nNitelikli pay (NP): payı.\n\n"
+                "MADDE 7 - Nitelikli paylar\nBir ortaklıkta nitelikli pay edinilir.\n\n"
+                "MADDE 8 - Oy\nNitelikli pay_oy oranı: on.\n"
+            ),
+        )
+    )
+
+    hits = await doc_store.search_document_sections("nitelikli pay", defining="nitelikli pay")
+    assert sorted(hit.section_ref for hit in hits) == ["3", "4", "6", "7"]
+    # A LIKE wildcard in a term is literal: "pay_" does not match "pay :" (madde 4).
+    assert await doc_store.search_document_sections("pay", defining="pay_") == []
+
+
 def test_prefix_stem_removes_an_aorist_verb_ending_above_a_five_character_root():
     from bddk_mcp.store.doc_store import fts_prefix_stem_query
 
@@ -574,5 +634,22 @@ async def test_add_catalog_entries_never_overwrites_a_held_entry(store):
 async def test_list_document_sources_reads_no_body(store, sample_doc):
     await store.store_document(sample_doc)
     (row,) = await store.list_document_sources()
-    assert set(row) == {"document_id", "source_url", "file_size", "downloaded_at", "extraction_method"}
+    assert set(row) == {
+        "document_id",
+        "source_url",
+        "file_size",
+        "downloaded_at",
+        "extraction_method",
+        "source_fingerprint",
+        "source_fingerprint_at",
+    }
     assert row["document_id"] == "1291"
+    assert (row["source_fingerprint"], row["source_fingerprint_at"]) == ("", None)
+
+
+async def test_a_source_fingerprint_is_stamped_with_the_write_time_when_no_date_is_given(store, sample_doc):
+    sample_doc.source_fingerprint = "file-sha256:" + "c" * 64
+    await store.store_document(sample_doc)
+    (row,) = await store.list_document_sources()
+    assert row["source_fingerprint"] == sample_doc.source_fingerprint
+    assert row["source_fingerprint_at"] == row["downloaded_at"]
