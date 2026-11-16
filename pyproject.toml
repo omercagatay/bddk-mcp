@@ -45,6 +45,15 @@ dev = [
 graph = [
     "graphifyy>=0.9.104,<0.10",
 ]
+# Optional maintainer tool: scripts/document_repair (repair a document from its PDF). It also needs the
+# poppler `pdftotext` binary. These packages already come with markitdown[pdf]; the group names them as direct
+# dependencies of the tool, at the versions its regression was measured with, so the image and CI do not grow.
+repair = [
+    "pdfminer.six>=20260107",
+    "pdfplumber>=0.11.10",
+    "pillow>=13.0.0",
+    "pypdfium2>=5.13.0",
+]
 gpu = [
     "torch>=2.13.0",
     "torchvision>=0.15",
