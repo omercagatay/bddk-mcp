@@ -1,0 +1,8 @@
+{
+  "name": "bddk-mcp-railway-config",
+  "private": true,
+  "description": "Authoring dependency of railway.ts (Railway Infrastructure as Code). Not part of the Python package or the image.",
+  "dependencies": {
+    "railway": "3.17.0"
+  }
+}

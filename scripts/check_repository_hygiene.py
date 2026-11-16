@@ -34,6 +34,7 @@ REQUIRED_FILES = {
 
 ALLOWED_TOP_LEVEL = {
     ".claude",
+    ".railway",
     ".dockerignore",
     ".env.example",
     ".gitattributes",

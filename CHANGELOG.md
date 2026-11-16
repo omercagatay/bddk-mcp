@@ -32,6 +32,27 @@ kaldırıldı (Git etiketi `archive/postgres-2026-11-10`); güncel corpus sözle
 
 ## [Yayınlanmadı] — hedef paket sürümü 5.0.1
 
+### Eklendi — Railway yapılandırması Infrastructure as Code olarak (2026-11-17)
+
+Railway, `railway.toml` (Config as Code) dosyasını 2026-12-01'de okumayı
+bırakıyor. Servisin kendi ayarlarında builder Railpack ve healthcheck boş; Dockerfile
+ile derleme, `/health/ready` healthcheck'i (300 sn) ve yeniden başlatma politikası
+(ON_FAILURE, 3 deneme) bugün yalnızca bu dosyadan geliyor. Yani taşıma yapılmazsa o
+tarihten sonraki ilk deploy Dockerfile'ı kullanmaz.
+
+- `.railway/railway.ts` aynı dört ayarı tanımlar; kaynak (`main`, CI check suite
+  beklenir), bölge/replica ve `mcp.bankreg.app` domain'i mevcut hâliyle yazılıdır.
+  Variable'lar dosya tarafından yönetilmez (`variables: { managed: false }`) ve
+  kaynağa girmez.
+- `.railway/package.json` ve `package-lock.json`: dosyanın yazım bağımlılığı olan
+  `railway` npm paketi (3.17.0, sabit). Python paketine ve imaja girmez
+  (`.dockerignore` allowlist'i `.railway/`'i almaz); `node_modules` git'e girmez.
+- Bu değişiklik canlı servise hiçbir şey uygulamaz. `railway config plan` (salt
+  okunur) 2026-11-17'de şunu gösterdi: 0 eklenecek, 2 değişecek, 0 silinecek
+  (builder; healthcheck yolu ve süresi ile yeniden başlatma politikası).
+  `railway config apply`, ardından doğrulama ve `railway.toml`'un kaldırılması
+  ayrı, sahibin onayına bağlı adımlardır; `railway.toml` o zamana kadar durur.
+
 ### Eklendi — hygiene kontrolü yarım kalmış merge'i yakalar (2026-11-16)
 
 `scripts/check_repository_hygiene.py` artık izlenen metin dosyalarında Git çakışma
