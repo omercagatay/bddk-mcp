@@ -27,7 +27,8 @@ from bddk_mcp.core.config import CORPUS_PATH, EMBEDDING_DIMENSION, EMBEDDING_MOD
 
 logger = logging.getLogger(__name__)
 
-SCHEMA_VERSION = 1
+# 2 (2026-11-15): documents.source_fingerprint and source_fingerprint_at, for `bddk-mcp check-updates --deep`.
+SCHEMA_VERSION = 2
 NOT_READY_HINT = "Run `bddk-mcp build` (seed_data -> corpus file) to prepare the corpus."
 # A plain build and --force both refuse to switch a file embedded with another model.
 MODEL_MISMATCH_HINT = (
@@ -65,7 +66,9 @@ CREATE TABLE IF NOT EXISTS documents (
     extracted_at REAL,
     extraction_method TEXT NOT NULL DEFAULT '',
     total_pages INTEGER NOT NULL DEFAULT 1,
-    file_size INTEGER NOT NULL DEFAULT 0
+    file_size INTEGER NOT NULL DEFAULT 0,
+    source_fingerprint TEXT NOT NULL DEFAULT '',
+    source_fingerprint_at REAL
 );
 CREATE INDEX IF NOT EXISTS idx_documents_category ON documents (category);
 CREATE TABLE IF NOT EXISTS document_versions (

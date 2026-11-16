@@ -634,5 +634,22 @@ async def test_add_catalog_entries_never_overwrites_a_held_entry(store):
 async def test_list_document_sources_reads_no_body(store, sample_doc):
     await store.store_document(sample_doc)
     (row,) = await store.list_document_sources()
-    assert set(row) == {"document_id", "source_url", "file_size", "downloaded_at", "extraction_method"}
+    assert set(row) == {
+        "document_id",
+        "source_url",
+        "file_size",
+        "downloaded_at",
+        "extraction_method",
+        "source_fingerprint",
+        "source_fingerprint_at",
+    }
     assert row["document_id"] == "1291"
+    assert (row["source_fingerprint"], row["source_fingerprint_at"]) == ("", None)
+
+
+async def test_a_source_fingerprint_is_stamped_with_the_write_time_when_no_date_is_given(store, sample_doc):
+    sample_doc.source_fingerprint = "file-sha256:" + "c" * 64
+    await store.store_document(sample_doc)
+    (row,) = await store.list_document_sources()
+    assert row["source_fingerprint"] == sample_doc.source_fingerprint
+    assert row["source_fingerprint_at"] == row["downloaded_at"]

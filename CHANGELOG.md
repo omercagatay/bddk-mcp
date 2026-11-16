@@ -11,7 +11,7 @@ yorumlanmalıdır.
 Uygulama/paket sürümü, `v0001`–`v0011` adlı eski PostgreSQL migration
 sürümlerinden bağımsızdır. PostgreSQL backend'i ve migration'ları 2026-11-10'da
 kaldırıldı (Git etiketi `archive/postgres-2026-11-10`); güncel corpus sözleşmesi
-`meta` tablosundaki `SCHEMA_VERSION = 1` değeridir ve migration kaydı yoktur. Sürüm geçmişi:
+`meta` tablosundaki `SCHEMA_VERSION = 2` değeridir (2026-11-15'e kadar 1) ve migration kaydı yoktur. Sürüm geçmişi:
 
 - `1.0.0` ve `2.0.0`, Git'te gerçekten `v1.0.0` ve `v2.0.0` etiketiyle
   işaretlenmiş tek sürümlerdir. `v1.0.0` etiketindeki `pyproject.toml` paket
@@ -118,6 +118,85 @@ metninde LIKE çalıştırır).
 **Yükseltme notu.** Yeniden derleme gerekmez. MCP sözleşmesi yalnızca eklemedir:
 `SectionItem.definition_match`; `query_words_not_searched` ve tool açıklaması yeni
 kelimeleri anlatır.
+
+### Eklendi — kaynak fingerprint'i ve `check-updates --deep` (2026-11-15)
+
+`check-updates` iki değişikliği göremiyordu: aynı boyutta başka bir dosyayla
+değiştirilmiş bir BDDK belgesini ve metne yeni tarih getirmeyen bir mevzuat.gov.tr
+değişikliğini (bir düzeltme, metnin zaten andığı bir tarihteki ikinci değişiklik).
+Corpus artık her belge için kaynağın bir fingerprint'ini saklıyor ve derin kontrol
+bu iki durumu da görüyor.
+
+- Schema sürümü 2: `documents` tablosuna `source_fingerprint`
+  (`<şema>:<SHA-256>`, kayıt yoksa boş) ve `source_fingerprint_at` (kaydedildiği
+  Unix zamanı) eklendi. `build` ve `export` bu iki alanı `seed_data/documents.json`
+  ile taşır, `scripts/patch_doc.py` onları `file_size` gibi korur; serving ve
+  readiness bu alanları okumaz.
+- İki fingerprint türü var. BDDK dosyasında indirilen baytların SHA-256'sı
+  (`file-sha256`). mevzuat.gov.tr metninde resmî konsolide metin sayfasının
+  (`MevzuatFihristDetayIframe`) normalize edilmiş görünür metninin SHA-256'sı
+  (`mevzuat-text-v1`): metin yalnız baytlardan çözülür (HTTP charset kullanılmaz),
+  script, style, noscript ve template öğeleri ile sync'in eklediği ek bloğu
+  çıkarılır, her boşluk dizisi tek boşluğa iner. İşaretleme, öznitelik, bağlantı ve
+  görsel hesaba girmez; yalnız görünen metnin değişmesi fingerprint'i değiştirir.
+- `sync`, `sync --doc-id` ve `sync --add` indirdiklerinin fingerprint'ini indirme
+  zamanıyla kaydeder. iframe dışındaki bir katmandan (PDF, `.htm`, Word) gelen
+  mevzuat metni başka bir kaynak olduğu için fingerprint almaz; önbellekteki
+  PDF'ten yeniden çıkarma hiçbir şey indirmediği için saklı fingerprint'i ve
+  tarihini korur.
+- `bddk-mcp check-updates --deep` her BDDK dosyasını indirir (en fazla 128 MB,
+  yanıt sync'teki gibi sınıflandırılır; bir HTML hata sayfası değişiklik değil,
+  hatadır) ve resmî mevzuat metnini fingerprint ile karşılaştırır. Tarih sinyali
+  derin modda da geçerlidir, çünkü metin çıkarıldıktan sonra kaydedilmiş bir
+  fingerprint o aradaki değişikliği göremez. `observed` derin modda kaynağın güncel
+  fingerprint'idir; kabul edilmiş bir değişiklik o kaynağa bağlanır ve sonraki bir
+  değişiklik yeniden raporlanır. Kabul kaydı yalnız `observed` değerinin ait
+  olduğu modda değerlendirilir (fingerprint derin modda, boyut ve tarih normal
+  modda, HTTP durumu ikisinde de). Fingerprint'i olmayan belge `no_fingerprint`
+  altında listelenir, hiçbir zaman değişmemiş sayılmaz (boyutu değişen BDDK dosyası
+  yine değişmiş sayılır); `not_checked` gibi exit code'u etkilemez. `--deep`
+  olmadan kontrol eskisi gibi çalışır. JSON rapora `deep` ve `no_fingerprint`
+  anahtarları eklendi; mevcut anahtarların hiçbiri değişmedi. Schema sürümü farklı
+  bir corpus dosyasında kontrol, hiçbir istek yapmadan çözümüyle birlikte exit 1
+  verir.
+- Seed'in baseline'ı (330 belge): 248 BDDK belgesinde 2026-11-14 22:46 UTC'deki
+  tazelik yoklamasında BDDK'nın sunduğu PDF'in SHA-256'sı; 2026-11-15'te eklenen 12
+  BDDK belgesinde sync'ten yaklaşık iki dakika sonra indirilen PDF'ler; 70 mevzuat
+  belgesinde 2026-11-15 20:16 UTC'de çekilen resmî metin (her sayfanın belgenin
+  kendisi olduğu, yani hata sayfası olmadığı, saklı metinle ortak bir tarih
+  taşıdığı ve ondan çok kısa olmadığı denetlendi). Bu baseline, saklı metnin o
+  baytlardan çıkarıldığının kanıtı değildir: eski belgelerde tek bağ, saklı
+  `file_size`'ın sunulan boyuta eşit olmasıdır. `source_fingerprint_at` bunu
+  gösterir; yalnız sync'in kaydettiği fingerprint'te `downloaded_at`'e eşittir.
+  `kgk_tms_12` ve `rg_32202_20230526_6` (host'ları allowlist dışında) fingerprint
+  taşımaz ve "not checked" kalır; allowlist genişletilmedi. 332 kaydın diğer
+  alanları `main` ile bayt bayt aynıdır, `seed_data/embeddings/` değişmedi; seed'den
+  yapılan build hiçbir chunk embed etmez ve export seed'i bayt bayt geri verir.
+  Build fingerprint'inin seed bölümü yeni alanlar yüzünden değişti.
+- Ölçüm (2026-11-15): normalizasyonun kararlılığı için 70 resmî metin 33 dakika
+  içinde altı kez çekildi (ikisi yoklama, biri sync yolundan, ana sayfa üzerinden,
+  sync'in kendi client'ı ve User-Agent'ı ile, üçü derin çalıştırmalarda); 70
+  fingerprint'in hepsi aynı kaldı (sync yolunda 69: `mevzuat_20145885`'in eski
+  `http://` kaynak adresini sync zaten reddediyor). 33 saniye arayla yapılan iki
+  çekim bayt bayt aynıydı; sync yolundan indirilen üç BDDK dosyası da seed'deki
+  fingerprint'i verdi. Seed'den kurulan corpus'a karşı 13 dakika içindeki üç derin
+  çalıştırmanın her biri 20-27 saniye sürdü, 338 yanıt ve 63,4 MB indirdi (normal
+  çalıştırma: 23 saniye, 13,9 MB; süreç içinde, sınırlı fetch etrafında sayıldı),
+  260 BDDK ve 70 mevzuat
+  kaynağını değişmemiş buldu, dört kabul edilmiş bulgu dışında bir şey raporlamadı
+  (exit 0) ve dosyanın SHA-256'sı değişmedi.
+- Derin kontrolün de göremedikleri: değişmeyen bir bağlantının arkasındaki ek
+  dosyası veya ZIP, dosyası değişen bir formül ya da tablo görseli, resmî metinde
+  yalnız işaretlemenin (bağlantı, öznitelik, stil) değişmesi, bir metnin çıkarılması
+  ile baseline'ın kaydı arasında tarih getirmeyen bir değişiklik, hâlâ listelenen
+  catalog kayıtlarının başlık, tarih veya kategori değişiklikleri ve allowlist
+  dışındaki host'ların belgeleri.
+- Yükseltme notu: schema değiştiği için 2026-11-15'ten önce kurulmuş yerel corpus
+  dosyası (schema sürümü 1) yazarlarca reddedilir, `serve` ve `bddk-mcp info` onu
+  hazır saymaz, `check-updates` exit 1 verir. Dosyayı silip `bddk-mcp build`
+  çalıştırın (sahibinin onayıyla); vektörler `seed_data/embeddings/`'ten gelir,
+  hiçbir chunk embed edilmez (2026-11-15'te 44 saniye). Container image yeni dosya
+  kurduğu için etkilenmez.
 
 ### Düzeltildi — sync önce PDF'in metin katmanını okur, model OCR yalnız taranmış PDF'te (2026-11-15)
 

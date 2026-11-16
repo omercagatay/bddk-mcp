@@ -21,6 +21,14 @@ The check reads the corpus file and the site; it writes nothing. It compares thr
   unchanged, because it is probably not the document. The stored text is never compared with a fresh extraction,
   because a repaired text never equals its source.
 
+  The deep mode (``deep=True``, ``check-updates --deep``) fetches each source and compares it with the source
+  fingerprint the corpus stores (``doc_sync.file_fingerprint`` / ``mevzuat_text_fingerprint``): a BDDK file whose
+  bytes differ is changed whatever its size; a mevzuat text whose normalised official text differs is changed
+  whatever its dates (the date signal still applies, because a fingerprint recorded after the extraction cannot
+  see what changed before it). ``observed`` is then the source's current fingerprint. A document without a stored
+  fingerprint is reported under "no_fingerprint", never as unchanged (a BDDK file whose size differs is still
+  changed).
+
 Reviewed findings that need no action are listed in ``accepted_findings.yml`` (see the comment there): they are
 reported under "accepted" and do not count for exit status 3, and an entry whose finding no longer occurs is
 reported as stale.
@@ -51,8 +59,21 @@ from bddk_mcp.ingest.client import (
     _canonicalize_catalog,
     _is_in_scope,
 )
-from bddk_mcp.ingest.doc_sync import _decode_html, _http_charset, _is_error_page, _parse_mevzuat_params
-from bddk_mcp.store.doc_store import DocumentStore
+from bddk_mcp.ingest.doc_sync import (
+    _MAX_PDF_DOWNLOAD_BYTES,
+    FILE_FINGERPRINT_SCHEME,
+    MEVZUAT_TEXT_FINGERPRINT_SCHEME,
+    UnsafeUpstreamResourceError,
+    _classify_bddk_document_response,
+    _decode_html,
+    _http_charset,
+    _is_error_page,
+    _parse_mevzuat_params,
+    file_fingerprint,
+    is_source_fingerprint,
+    mevzuat_text_fingerprint,
+)
+from bddk_mcp.store.doc_store import DocumentStore, _utc_minute
 
 logger = logging.getLogger(__name__)
 
@@ -151,8 +172,10 @@ def apply_accepted(report: dict, registry: dict[tuple[str, str], AcceptedFinding
 
     A "changed" entry accepts only the value it names: a different size or another date is reported again, and the
     entry is then stale. An entry is called stale only when this run could evaluate it (all pages read for the
-    catalog findings; the source checked for "changed").
+    catalog findings; the source checked for "changed", by the mode its ``observed`` belongs to: a source
+    fingerprint by a deep run, a size or dates by a normal one, an HTTP status by both).
     """
+    deep = report.get("deep", False)
     accepted: list[dict] = []
     matched: set[tuple[str, str]] = set()
     for finding in FINDINGS:
@@ -167,11 +190,14 @@ def apply_accepted(report: dict, registry: dict[tuple[str, str], AcceptedFinding
             else:
                 kept.append(item)
         report[finding] = kept
-    unevaluated = {item["document_id"] for item in (*report["check_errors"], *report["not_checked"])}
+    unevaluated = {
+        item["document_id"] for item in (*report["check_errors"], *report["not_checked"], *report["no_fingerprint"])
+    }
 
     def evaluated(entry: AcceptedFinding) -> bool:
         if entry.finding == "changed":
-            return entry.document_id not in unevaluated
+            in_mode = entry.observed.startswith("HTTP ") or is_source_fingerprint(entry.observed) == deep
+            return in_mode and entry.document_id not in unevaluated
         return report["not_listed_complete"]
 
     report["accepted"] = accepted
@@ -247,11 +273,24 @@ def _error_text(exc: Exception) -> str:
     return type(exc).__name__
 
 
-async def _check_bddk(client: BddkApiClient, row: dict) -> tuple[str, str, str]:
-    """("unchanged" | "changed" | "not_checked" | "error", reason, observed) from the size BDDK declares."""
+def _stored_fingerprint(row: dict, scheme: str) -> str:
+    """The stored source fingerprint when it is of ``scheme``; '' otherwise (none, or another scheme)."""
+    value = row.get("source_fingerprint") or ""
+    return value if is_source_fingerprint(value) and value.startswith(f"{scheme}:") else ""
+
+
+def _fingerprinted_on(row: dict) -> str:
+    recorded = row.get("source_fingerprint_at")
+    return _utc_minute(recorded) if recorded is not None else "an unrecorded date"
+
+
+async def _check_bddk(client: BddkApiClient, row: dict, deep: bool = False) -> tuple[str, str, str]:
+    """("unchanged" | "changed" | "not_checked" | "no_fingerprint" | "error", reason, observed): the size BDDK
+    declares (HEAD), or in deep mode the downloaded bytes against the stored fingerprint."""
     try:
         response = await client._fetch_with_retry(
-            f"https://www.bddk.org.tr/Mevzuat/DokumanGetir/{row['document_id']}", method="HEAD"
+            f"https://www.bddk.org.tr/Mevzuat/DokumanGetir/{row['document_id']}",
+            **({"max_bytes": _MAX_PDF_DOWNLOAD_BYTES} if deep else {"method": "HEAD"}),
         )
     except httpx.HTTPStatusError as exc:
         if exc.response.status_code in (404, 410):
@@ -259,6 +298,21 @@ async def _check_bddk(client: BddkApiClient, row: dict) -> tuple[str, str, str]:
         return "error", _error_text(exc), ""
     except _CHECK_ERRORS as exc:
         return "error", _error_text(exc), ""
+    if deep:
+        try:
+            _classify_bddk_document_response(response)
+        except UnsafeUpstreamResourceError:
+            return "error", "the source answered with an error page or an unsupported file, not the document", ""
+        current = file_fingerprint(response.content)
+        stored = _stored_fingerprint(row, FILE_FINGERPRINT_SCHEME)
+        if not stored:
+            if len(response.content) != row["file_size"]:
+                size = len(response.content)
+                return "changed", f"source file is {size} bytes, {row['file_size']} when it was downloaded", current
+            return "no_fingerprint", "no source fingerprint is stored", ""
+        if current != stored:
+            return "changed", f"source file differs from the one fingerprinted on {_fingerprinted_on(row)}", current
+        return "unchanged", "", ""
     size = response.headers.get("content-length", "")
     if not _NUMBER_RE.fullmatch(size):
         return "not_checked", "the source declares no size", ""
@@ -267,8 +321,11 @@ async def _check_bddk(client: BddkApiClient, row: dict) -> tuple[str, str, str]:
     return "unchanged", "", ""
 
 
-async def _check_mevzuat(client: BddkApiClient, store: DocumentStore, row: dict) -> tuple[str, str, str]:
-    """Dates of the official consolidated text that the stored text does not have."""
+async def _check_mevzuat(
+    client: BddkApiClient, store: DocumentStore, row: dict, deep: bool = False
+) -> tuple[str, str, str]:
+    """Dates of the official consolidated text that the stored text does not have; in deep mode also its
+    normalised text against the stored fingerprint."""
     number, kind, series = _parse_mevzuat_params(row["source_url"])
     number = number or row["document_id"].removeprefix("mevzuat_")
     if not all(_NUMBER_RE.fullmatch(part) for part in (number, kind, series)):
@@ -290,23 +347,30 @@ async def _check_mevzuat(client: BddkApiClient, store: DocumentStore, row: dict)
     official_dates, stored_dates = text_dates(official), text_dates(stored_text)
     if (stored_dates and not official_dates & stored_dates) or len(official) < _MIN_OFFICIAL_SHARE * len(stored_text):
         return "error", "the official text does not look like the stored document (no shared date, or far shorter)", ""
-    added = official_dates - stored_dates
+    added = ", ".join(sorted(official_dates - stored_dates))
+    current = mevzuat_text_fingerprint(response.content) if deep else ""
     if added:
-        observed = ", ".join(sorted(added))
-        return "changed", f"official text has dates the stored text lacks: {observed}", observed
+        return "changed", f"official text has dates the stored text lacks: {added}", current or added
+    if not deep:
+        return "unchanged", "", ""
+    stored_fingerprint = _stored_fingerprint(row, MEVZUAT_TEXT_FINGERPRINT_SCHEME)
+    if not stored_fingerprint:
+        return "no_fingerprint", "no source fingerprint is stored", ""
+    if current != stored_fingerprint:
+        return "changed", f"official text differs from the one fingerprinted on {_fingerprinted_on(row)}", current
     return "unchanged", "", ""
 
 
-async def check_documents(store: DocumentStore, client: BddkApiClient) -> dict:
+async def check_documents(store: DocumentStore, client: BddkApiClient, *, deep: bool = False) -> dict:
     """Compare every stored document with its source by the signal of its host (see the module docstring)."""
     rows = await store.list_document_sources()
 
     async def one(row: dict) -> tuple[str, str, str, str, str]:
         document_id = row["document_id"]
         if _NUMBER_RE.fullmatch(document_id):
-            kind, check = "bddk", _check_bddk(client, row)
+            kind, check = "bddk", _check_bddk(client, row, deep)
         elif re.fullmatch(r"mevzuat_[0-9]{1,20}", document_id):
-            kind, check = "mevzuat", _check_mevzuat(client, store, row)
+            kind, check = "mevzuat", _check_mevzuat(client, store, row, deep)
         else:
             return document_id, "other", "not_checked", "source host is not on the allowlist", ""
         async with client._scrape_sem:
@@ -316,7 +380,7 @@ async def check_documents(store: DocumentStore, client: BddkApiClient) -> dict:
         return document_id, kind, status, reason, observed
 
     results = await asyncio.gather(*(one(row) for row in rows))
-    by_status: dict[str, list[dict]] = {"changed": [], "not_checked": [], "error": []}
+    by_status: dict[str, list[dict]] = {"changed": [], "not_checked": [], "no_fingerprint": [], "error": []}
     unchanged = {"bddk": 0, "mevzuat": 0}
     for document_id, kind, status, reason, observed in results:
         if status == "unchanged":
@@ -328,24 +392,32 @@ async def check_documents(store: DocumentStore, client: BddkApiClient) -> dict:
     return {
         "changed": by_status["changed"],
         "not_checked": by_status["not_checked"],
+        "no_fingerprint": by_status["no_fingerprint"],
         "check_errors": by_status["error"],
         "unchanged": unchanged,
     }
 
 
 async def check_updates(
-    store: DocumentStore, client: BddkApiClient, accepted: dict[tuple[str, str], AcceptedFinding] | None = None
+    store: DocumentStore,
+    client: BddkApiClient,
+    accepted: dict[tuple[str, str], AcceptedFinding] | None = None,
+    *,
+    deep: bool = False,
 ) -> dict:
     """The whole report: per page, new, not listed, changed, accepted and what could not be checked; plus a status.
 
     ``accepted`` defaults to the shipped registry, loaded here so a malformed one fails the check, not the import.
+    ``deep`` downloads every source and compares it with its stored fingerprint (see the module docstring); a
+    document without one is listed under ``no_fingerprint``, which, like ``not_checked``, does not set the status.
     """
     registry = load_accepted_findings() if accepted is None else accepted
     pages = await client.read_catalog_pages(CHECK_PAGE_IDS)
     report = {
+        "deep": deep,
         "pages": [{"page": page_id, "entries": len(entries), "error": error} for page_id, entries, error in pages],
         **compare_catalog(pages, await store.load_catalog()),
-        **await check_documents(store, client),
+        **await check_documents(store, client, deep=deep),
     }
     apply_accepted(report, registry)
     findings = report["new"] or report["new_on_page_55"] or report["not_listed"] or report["changed"]
@@ -368,7 +440,10 @@ def _entry_line(item: dict) -> str:
 
 
 def format_report(report: dict) -> str:
-    lines = ["Catalog pages:"]
+    lines = (
+        ["Mode: deep (every source downloaded and compared with its stored fingerprint)"] if report.get("deep") else []
+    )
+    lines.append("Catalog pages:")
     for page in report["pages"]:
         if page["error"]:
             failed = "empty (no entry parsed)" if page["error"] == "empty_page" else f"failed ({page['error']})"
@@ -396,7 +471,11 @@ def format_report(report: dict) -> str:
     lines.append(f"Changed at the source: {len(report['changed'])}")
     lines += [f"  {item['document_id']}: {item['reason']}" for item in report["changed"]]
     unchanged = report["unchanged"]
-    lines.append(f"Unchanged by the signal of their source: {unchanged['bddk']} BDDK, {unchanged['mevzuat']} mevzuat")
+    signal = "fingerprint" if report.get("deep") else "signal"
+    lines.append(f"Unchanged by the {signal} of their source: {unchanged['bddk']} BDDK, {unchanged['mevzuat']} mevzuat")
+    if report.get("deep"):
+        lines.append(f"No fingerprint stored (could not be compared): {len(report['no_fingerprint'])}")
+        lines += [f"  {item['document_id']}: {item['reason']}" for item in report["no_fingerprint"]]
     lines.append(f"Not checked: {len(report['not_checked'])}")
     lines += [f"  {item['document_id']}: {item['reason']}" for item in report["not_checked"]]
     if report["check_errors"]:

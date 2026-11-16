@@ -296,6 +296,12 @@ class StoredDocument(BaseModel):
     downloaded_at: float | None = None
     """Carried from seed data by the build; the writer stamps the current time when absent."""
     extracted_at: float | None = None
+    source_fingerprint: str = ""
+    """``<scheme>:<sha256 hex>`` of the source as it was when recorded ('' when none was); read only by
+    `bddk-mcp check-updates --deep`, never by serving."""
+    source_fingerprint_at: float | None = None
+    """Unix time the fingerprint was recorded; the writer stamps the current time when absent and a fingerprint is
+    given, so for a sync it equals the download time."""
 
     model_config = {"arbitrary_types_allowed": True}
 
@@ -515,8 +521,9 @@ def upsert_document_sync(
         """
         INSERT INTO documents (
             document_id, title, category, decision_date, decision_number, source_url, pdf_blob,
-            markdown_content, content_hash, downloaded_at, extracted_at, extraction_method, total_pages, file_size
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            markdown_content, content_hash, downloaded_at, extracted_at, extraction_method, total_pages, file_size,
+            source_fingerprint, source_fingerprint_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(document_id) DO UPDATE SET
             title = excluded.title,
             category = excluded.category,
@@ -530,7 +537,9 @@ def upsert_document_sync(
             extracted_at = excluded.extracted_at,
             extraction_method = excluded.extraction_method,
             total_pages = excluded.total_pages,
-            file_size = excluded.file_size
+            file_size = excluded.file_size,
+            source_fingerprint = excluded.source_fingerprint,
+            source_fingerprint_at = excluded.source_fingerprint_at
         """,
         (
             doc.document_id,
@@ -547,6 +556,10 @@ def upsert_document_sync(
             doc.extraction_method,
             total_pages,
             doc.file_size or (len(doc.pdf_bytes) if doc.pdf_bytes else 0),
+            doc.source_fingerprint,
+            doc.source_fingerprint_at
+            if doc.source_fingerprint_at is not None
+            else (now if doc.source_fingerprint else None),
         ),
     )
     written = replace_sections_sync(conn, doc.document_id, sections, source_content_hash=content_hash)
@@ -594,6 +607,8 @@ class DocumentStore:
             extraction_method=row["extraction_method"] or "markitdown",
             total_pages=row["total_pages"] or 1,
             file_size=row["file_size"] or 0,
+            source_fingerprint=row["source_fingerprint"] or "",
+            source_fingerprint_at=row["source_fingerprint_at"],
         )
 
     async def get_pdf_bytes(self, document_id: str) -> bytes | None:
@@ -1202,11 +1217,12 @@ class DocumentStore:
         return [dict(row) for row in rows]
 
     async def list_document_sources(self) -> list[dict]:
-        """Source identity of every stored document (id, source URL, downloaded size and date, method); no body."""
+        """Source identity of every stored document (id, source URL, downloaded size and date, method, source
+        fingerprint and its date); no body."""
         rows = await self._db.run(
             lambda conn: conn.execute(
-                "SELECT document_id, source_url, file_size, downloaded_at, extraction_method FROM documents "
-                "ORDER BY document_id"
+                "SELECT document_id, source_url, file_size, downloaded_at, extraction_method, source_fingerprint, "
+                "source_fingerprint_at FROM documents ORDER BY document_id"
             ).fetchall()
         )
         return [dict(row) for row in rows]

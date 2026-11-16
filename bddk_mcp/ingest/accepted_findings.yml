@@ -5,8 +5,11 @@
 #   document_id: the catalog or document id the finding names
 #   finding: not_listed | new | new_on_page_55 | changed
 #   observed: only for "changed", and required there: the exact value the check reported (`observed` in --json:
-#             the size BDDK declares, "HTTP 404", or the official-only dates of a mevzuat text). A later, different
-#             change does not match and is reported again.
+#             the size BDDK declares, "HTTP 404", or the official-only dates of a mevzuat text; with --deep the
+#             source fingerprint, "file-sha256:..." or "mevzuat-text-v1:..."). A later, different change does not
+#             match and is reported again. An entry is judged only by the mode its observed value belongs to (a
+#             fingerprint by a --deep run, a size or dates by a normal run, an HTTP status by both), and there is
+#             one "changed" entry per document, so accept a change in the mode the scheduled job runs.
 #   reason: one line, why no action is needed
 #   reviewed: the review date, YYYY-MM-DD
 # An entry whose finding no longer occurs is reported as stale: remove it.

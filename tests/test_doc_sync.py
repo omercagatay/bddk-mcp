@@ -1487,6 +1487,32 @@ async def test_cached_pdf_reextraction_keeps_the_stored_download_date(doc_store)
 
 
 @pytest.mark.asyncio
+async def test_the_source_fingerprint_follows_what_was_downloaded(doc_store):
+    """Kept on a cached-PDF re-extraction (nothing was downloaded), none for a mevzuat text not from the iframe."""
+    fingerprint = "mevzuat-text-v1:" + "a" * 64
+    await doc_store.store_document(
+        StoredDocument(
+            document_id="mevzuat_21192",
+            title="Y",
+            markdown_content="MADDE 1 - eski çıkarım",
+            pdf_bytes=b"%PDF-1.4 fake",
+            source_fingerprint=fingerprint,
+            source_fingerprint_at=1_700_000_000.0,
+        )
+    )
+    syncer = DocumentSyncer(doc_store, ocr_backends=[_FakeOcr()], http=MagicMock(), prefer_html_for_mevzuat=False)
+    assert (await syncer.sync_document("mevzuat_21192", force=True)).method == "cached_pdf+lightocr"
+    stored = await doc_store.get_document("mevzuat_21192")
+    assert (stored.source_fingerprint, stored.source_fingerprint_at) == (fingerprint, 1_700_000_000.0)
+
+    syncer._download_mevzuat = AsyncMock(return_value=(b"%PDF-1.4 static", "mevzuat_pdf", ".pdf"))
+    syncer._prefer_html_for_mevzuat = True  # no cached-PDF shortcut: a real download from the static PDF layer
+    assert (await syncer.sync_document("mevzuat_21192", force=True)).success
+    stored = await doc_store.get_document("mevzuat_21192")
+    assert (stored.source_fingerprint, stored.source_fingerprint_at) == ("", None)
+
+
+@pytest.mark.asyncio
 async def test_a_real_download_still_stamps_a_new_download_date(doc_store):
     await doc_store.store_document(
         StoredDocument(

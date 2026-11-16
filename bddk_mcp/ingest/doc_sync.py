@@ -17,6 +17,7 @@ Run it through ``bddk-mcp sync``.
 
 import asyncio
 import codecs
+import hashlib
 import html
 import io
 import logging
@@ -506,6 +507,41 @@ def _is_error_page(content: str) -> bool:
         if pattern in decoded:
             return True
     return False
+
+
+# A stored ``source_fingerprint`` is "<scheme>:<64 hex digits>" ('' when none was recorded); `bddk-mcp
+# check-updates --deep` compares it with the live source. A value of any other form, such as one of a later
+# normalisation scheme, counts as no fingerprint, never as a change.
+FILE_FINGERPRINT_SCHEME = "file-sha256"
+MEVZUAT_TEXT_FINGERPRINT_SCHEME = "mevzuat-text-v1"
+_FINGERPRINT_RE = re.compile(rf"(?:{FILE_FINGERPRINT_SCHEME}|{MEVZUAT_TEXT_FINGERPRINT_SCHEME}):[0-9a-f]{{64}}")
+_WHITESPACE_RUN_RE = re.compile(r"\s+")
+
+
+def is_source_fingerprint(value: str) -> bool:
+    return bool(_FINGERPRINT_RE.fullmatch(value or ""))
+
+
+def file_fingerprint(content: bytes) -> str:
+    """The fingerprint of a downloaded file (a BDDK document): SHA-256 of its bytes."""
+    return f"{FILE_FINGERPRINT_SCHEME}:{hashlib.sha256(content).hexdigest()}"
+
+
+def mevzuat_text_fingerprint(content: bytes) -> str:
+    """The fingerprint of an official consolidated text (the MevzuatFihristDetayIframe page): SHA-256 of its text.
+
+    The text is decoded from the bytes alone (no HTTP charset, so sync and the check read it alike), without
+    script, style, noscript and template elements and without the annex block sync appends
+    (``div#mevzuat-ekler``), with every run of whitespace made one space. Markup, attributes, links and images do
+    not count: only a change of the visible text changes the fingerprint.
+    """
+    soup = BeautifulSoup(_decode_html(content), "html.parser")
+    for element in soup.find_all(["script", "style", "noscript", "template"]):
+        element.decompose()
+    for element in soup.find_all("div", id="mevzuat-ekler"):
+        element.decompose()
+    text = _WHITESPACE_RUN_RE.sub(" ", soup.get_text(" ")).strip()
+    return f"{MEVZUAT_TEXT_FINGERPRINT_SCHEME}:{hashlib.sha256(text.encode('utf-8')).hexdigest()}"
 
 
 def _response_media_type(headers: Mapping[str, str]) -> str:
@@ -1056,12 +1092,23 @@ class DocumentSyncer:
                 error=error_msg,
             )
 
-        # Store. A re-extraction from the cached PDF downloaded nothing: keep the stored download date.
+        # Store. A re-extraction from the cached PDF downloaded nothing: keep the stored download date and source
+        # fingerprint. Otherwise record the fingerprint of what was downloaded (stamped with the download time) in
+        # the form `check-updates --deep` compares: the bytes of a BDDK file, the text of the official mevzuat
+        # iframe page. A mevzuat text from another layer (PDF, .htm, Word) is another resource: no fingerprint.
         downloaded_at = None
+        source_fingerprint, source_fingerprint_at = "", None
         if method == "cached_pdf":
             current_body = await self._store.get_current_body(doc_id)
             if current_body is not None:
                 downloaded_at = current_body["downloaded_at"]
+            stored = await self._store.get_document(doc_id)
+            if stored is not None:
+                source_fingerprint, source_fingerprint_at = stored.source_fingerprint, stored.source_fingerprint_at
+        elif doc_id.isdigit():
+            source_fingerprint = file_fingerprint(content)
+        elif method.startswith("mevzuat_iframe"):
+            source_fingerprint = mevzuat_text_fingerprint(content)
         doc = StoredDocument(
             document_id=doc_id,
             title=title or doc_id,
@@ -1074,6 +1121,8 @@ class DocumentSyncer:
             extraction_method=extraction_method,
             file_size=len(content),
             downloaded_at=downloaded_at,
+            source_fingerprint=source_fingerprint,
+            source_fingerprint_at=source_fingerprint_at,
         )
         await self._store.store_document(doc)
 
