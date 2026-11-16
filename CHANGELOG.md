@@ -32,6 +32,14 @@ kaldırıldı (Git etiketi `archive/postgres-2026-11-10`); güncel corpus sözle
 
 ## [Yayınlanmadı] — hedef paket sürümü 5.0.1
 
+### Eklendi — hygiene kontrolü yarım kalmış merge'i yakalar (2026-11-16)
+
+`scripts/check_repository_hygiene.py` artık izlenen metin dosyalarında Git çakışma
+işaretiyle başlayan satırı hata sayar. 2026-11-16'da bir dalın çakışması çözülürken
+işaretler `CHANGELOG.md` ve `docs/STATUS.md` içinde kalmış, testler ve hygiene
+kontrolü geçmişti; commit'ten önce elle fark edildi. Kontrol CI'ın lint işinde
+çalışır.
+
 ### Eklendi — belgeyi PDF'inden onaran maintainer aracı repository'de (2026-11-16)
 
 16, 1340, 1336 ve 1341'i 2026-11-15'te insan adımı olmadan PDF'lerinden onaran
