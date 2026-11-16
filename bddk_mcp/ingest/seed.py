@@ -37,7 +37,8 @@ EMBEDDINGS_SUBDIR = "embeddings"
 _SAFE_DOC_ID = re.compile(r"[A-Za-z0-9_.-]+")
 _DOCUMENT_COLUMNS = (
     "document_id, title, category, decision_date, decision_number, source_url, markdown_content, "
-    "content_hash, downloaded_at, extracted_at, extraction_method, total_pages, file_size"
+    "content_hash, downloaded_at, extracted_at, extraction_method, total_pages, file_size, source_fingerprint, "
+    "source_fingerprint_at"
 )
 _CATALOG_COLUMNS = "document_id, title, content, decision_date, decision_number, category, source_url"
 
@@ -102,6 +103,8 @@ def _seed_document(record: dict) -> StoredDocument:
         file_size=record.get("file_size", 0),
         downloaded_at=record.get("downloaded_at"),
         extracted_at=record.get("extracted_at"),
+        source_fingerprint=record.get("source_fingerprint") or "",
+        source_fingerprint_at=record.get("source_fingerprint_at"),
     )
 
 
