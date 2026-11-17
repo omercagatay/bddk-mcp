@@ -32,6 +32,23 @@ kaldırıldı (Git etiketi `archive/postgres-2026-11-10`); güncel corpus sözle
 
 ## [Yayınlanmadı] — hedef paket sürümü 5.0.1
 
+### Değişti — durum belgesi: olgunluk değerlendirmesi ve eskimiş rakamlar (2026-11-17)
+
+Yalnızca belge; kod, seed ve servis davranışı değişmedi.
+
+- `docs/STATUS.md` yeni bir "Maturity assessment (2026-11-17)" bölümü taşıyor:
+  "mühendislik betası" etiketi geçerli, ama iki yüzü aynı düzeyde değil. Kod, test
+  ve güvenlik varsayılanları sürüm adayı düzeyinde; tasarım kararlılığı, bağımsız
+  ölçüm, gerçek kullanım ve banka kabulü tarafı pilot düzeyinde ya da başlanmamış.
+  Bölüm bunun bakımcının kendi yargısı olduğunu, bağımsız bir inceleme olmadığını
+  ve etiketi neyin değiştireceğini (etiketli 5.0.1 ve değişikliksiz bir dönem,
+  müfettişin yazdığı değerlendirme seti, kayıtlı gerçek kullanım, canlı uçta kimlik
+  doğrulama) yazıyor.
+- Formül tanımayan yöntemle çıkarılmış belge sayısı düzeltildi: 297 değil, 332
+  belgenin 308'i (`is_formula_aware` ile `seed_data/documents.json` üzerinde
+  sayıldı). 297 rakamı 2026-11-15'te eklenen on üç belgeden önceye aitti.
+- Başlıktaki doğrulama tarihi ve CI satırındaki test sayısı güncellendi.
+
 ### Kaldırıldı — `railway.toml`; Railway geçişi tamamlandı (2026-11-17)
 
 `.railway/railway.ts` 2026-11-17'de sabitlenmiş bir plandan `railway config apply`
