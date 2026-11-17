@@ -57,7 +57,6 @@ ALLOWED_TOP_LEVEL = {
     "docker-compose.yml",
     "docs",
     "pyproject.toml",
-    "railway.toml",
     "scripts",
     "seed_data",
     "server.py",
