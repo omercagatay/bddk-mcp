@@ -3,17 +3,34 @@
   "permissions": {
     "allow": [
       "Bash(railway *)",
-      "mcp__railway"
+      "mcp__railway",
+      "Bash(uv run pytest *)",
+      "PowerShell(uv run pytest *)",
+      "Bash(uv run ruff check *)",
+      "PowerShell(uv run ruff check *)",
+      "Bash(uv run ruff format --check *)",
+      "PowerShell(uv run ruff format --check *)",
+      "Bash(uv run python scripts/check_repository_hygiene.py)",
+      "PowerShell(uv run python scripts/check_repository_hygiene.py)",
+      "Bash(uv lock --check)",
+      "PowerShell(uv lock --check)"
     ]
   },
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Bash",
+        "matcher": "Bash|PowerShell",
         "hooks": [
           {
             "type": "command",
-            "command": "CMD=$(jq -r '.tool_input.command // \"\"'); case \"$CMD\" in 'git commit'*) { cd \"$(git rev-parse --show-toplevel)\" && uv run ruff check . && uv run ruff format --check .; } || exit 2;; esac",
+            "if": "Bash(git commit *)",
+            "command": "top=$(git rev-parse --show-toplevel) || exit 0; cd \"$top\" && { uv run ruff check . && uv run ruff format --check .; } >&2 || exit 2",
+            "statusMessage": "Running ruff checks before commit"
+          },
+          {
+            "type": "command",
+            "if": "PowerShell(git commit *)",
+            "command": "top=$(git rev-parse --show-toplevel) || exit 0; cd \"$top\" && { uv run ruff check . && uv run ruff format --check .; } >&2 || exit 2",
             "statusMessage": "Running ruff checks before commit"
           }
         ]
@@ -25,7 +42,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "FILE=$(echo \"$CLAUDE_TOOL_INPUT\" | jq -r '.file_path // empty') && [ -n \"$FILE\" ] && echo \"$FILE\" | grep -q '\\.py$' && cd \"$(git rev-parse --show-toplevel)\" && uv run ruff check --fix \"$FILE\" 2>/dev/null || true"
+            "command": "uv run --project \"$CLAUDE_PROJECT_DIR\" python \"$CLAUDE_PROJECT_DIR/.claude/hooks/ruff_after_edit.py\""
           }
         ]
       }

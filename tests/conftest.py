@@ -7,7 +7,10 @@ vector store is exercised without loading a model.
 
 import hashlib
 import importlib.util
+import ipaddress
 import os
+import socket
+import sys
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
@@ -89,6 +92,90 @@ def provisioned_gpu_ocr_lane() -> None:
 
     if not torch.cuda.is_available():
         pytest.fail("Required GPU OCR lane cannot access CUDA.", pytrace=False)
+
+
+# -- Network guard -------------------------------------------------------------
+
+
+class NetworkAccessBlocked(RuntimeError):
+    """Not an OSError on purpose: an HTTP client would turn an OSError into an ordinary, retryable failure."""
+
+
+def _is_loopback(host) -> bool:
+    if isinstance(host, bytes):
+        host = host.decode("ascii", "replace")
+    if not host or host.lower() == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host.split("%", 1)[0]).is_loopback
+    except ValueError:
+        return False
+
+
+def _is_ip_literal(host) -> bool:
+    try:
+        ipaddress.ip_address((host.decode("ascii", "replace") if isinstance(host, bytes) else host).split("%", 1)[0])
+    except (AttributeError, ValueError):
+        return False
+    return True
+
+
+@pytest.fixture(autouse=True)
+def network_guard(request, monkeypatch):
+    """Fail any test that connects to, or looks up, a host other than loopback, unless it is marked ``network``.
+
+    Guards ``socket.socket.connect``/``connect_ex`` (TCP/UDP only, so pipes and unix sockets pass), ``socket.getaddrinfo``
+    (IP literals pass: they need no lookup) and, on Windows, the proactor event loop's ``connect``, which calls
+    ConnectEx without going through ``socket.socket.connect``. A blocked attempt also fails the test at teardown, so a
+    caller that catches the exception broadly cannot hide it. Yields the list of blocked targets.
+    """
+    blocked: list[str] = []
+    if request.node.get_closest_marker("network"):
+        yield blocked
+        return
+
+    def check(family, address) -> None:
+        if family in (socket.AF_INET, socket.AF_INET6) and not _is_loopback(address[0]):
+            blocked.append(repr(address))
+            raise NetworkAccessBlocked(
+                f"Network access blocked in a unit test: connect to {address!r}. Mock the transport, or mark the test "
+                "@pytest.mark.network if it genuinely needs the network."
+            )
+
+    def guard_socket(original):
+        def connect(sock, address, *args):
+            check(sock.family, address)
+            return original(sock, address, *args)
+
+        return connect
+
+    real_getaddrinfo = socket.getaddrinfo
+
+    def getaddrinfo(host, *args, **kwargs):
+        if not (_is_loopback(host) or _is_ip_literal(host)):
+            blocked.append(repr(host))
+            raise NetworkAccessBlocked(
+                f"Network access blocked in a unit test: DNS lookup of {host!r}. Mock the transport, or mark the test "
+                "@pytest.mark.network if it genuinely needs the network."
+            )
+        return real_getaddrinfo(host, *args, **kwargs)
+
+    monkeypatch.setattr(socket.socket, "connect", guard_socket(socket.socket.connect))
+    monkeypatch.setattr(socket.socket, "connect_ex", guard_socket(socket.socket.connect_ex))
+    monkeypatch.setattr(socket, "getaddrinfo", getaddrinfo)
+    if sys.platform == "win32":
+        from asyncio.windows_events import IocpProactor
+
+        real_proactor_connect = IocpProactor.connect
+
+        def proactor_connect(proactor, conn, address):
+            check(conn.family, address)
+            return real_proactor_connect(proactor, conn, address)
+
+        monkeypatch.setattr(IocpProactor, "connect", proactor_connect)
+    yield blocked
+    if blocked:
+        pytest.fail(f"The test attempted network access: {', '.join(blocked)}", pytrace=False)
 
 
 # -- Temporary corpus ----------------------------------------------------------
