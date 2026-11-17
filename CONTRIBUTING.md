@@ -35,7 +35,7 @@ uv run python scripts/check_repository_hygiene.py
 uv run pytest tests/ -m "not gpu" --strict-markers -q
 ```
 
-The complete CI matrix also exercises Python 3.12 and 3.13, package artifacts, container recipes and the `image-smoke` job, which builds the image and calls one tool in the running container. CI and the Dockerfile use the same `uv` version (0.12.3); the hygiene check fails when they differ. The whole suite runs without any service; only the `gpu` marker is skipped by default.
+The complete CI matrix also exercises Python 3.12 and 3.13, package artifacts, container recipes and the `image-smoke` job, which builds the image, calls one catalog search in the running container and runs the section-search audit set against it (see [Document Quality](docs/DOCUMENT_QUALITY.md#section-search-audit-set)). CI and the Dockerfile use the same `uv` version (0.12.3); the hygiene check fails when they differ. The whole suite runs without any service; only the `gpu` marker is skipped by default.
 
 ## Branch and pull-request workflow
 
@@ -81,6 +81,29 @@ Do not force-push `main`, commit directly around its protection rules, or leave 
 - Mark historical reviews and evidence as snapshots so they are not mistaken for current guarantees.
 - Update [the documentation index](docs/README.md) when adding a top-level document.
 - Add user-visible changes to `CHANGELOG.md` under the unreleased section.
+
+## Code knowledge graph (graphify, optional)
+
+[graphify](https://github.com/Graphify-Labs/graphify) builds a navigable code graph for exploring dependencies and callers. It is an optional developer aid in its own `graph` dependency group; CI and the serving image do not install it.
+
+```bash
+uv sync --dev --group graph                  # Install graphify locally
+uv run graphify update .                     # Build/refresh graphify-out/ from code (AST only, no LLM, no network)
+uv run graphify query "<question>"           # BFS traversal over graphify-out/graph.json
+uv run graphify explain "VectorStore"        # A node and its neighbours
+uv run graphify affected "<symbol>"          # What depends on a symbol
+```
+
+Obsidian vault and agent access (both local, opt-in):
+
+```bash
+uv run --group graph python scripts/graphify_sync.py                  # Refresh graph + Obsidian vault in graphify-out/obsidian
+uv run --group graph python scripts/graphify_sync.py --install-hooks  # Auto-refresh after commit/merge/checkout (local .git/hooks only)
+uv run --group graph python scripts/graphify_sync.py --uninstall-hooks
+uv run --group graph python -m graphify.serve graphify-out/graph.json  # Read-only stdio MCP server for an agent (e.g. Hermes)
+```
+
+The rules for using it (what must not be run, committed or connected) are in [AGENTS.md](AGENTS.md#code-knowledge-graph-graphify-optional).
 
 ## Review standard
 

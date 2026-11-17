@@ -1,0 +1,1320 @@
+{
+ "header": {
+  "description": "Audit questions with the provisions that answer them, and the recorded outcome of search_document_sections for each. Gated by tests/test_section_search_audit.py (lexical path), scripts/eval_section_search.py and scripts/ci_image_smoke.py (real model).",
+  "authors": "Questions and gold provisions were written by the maintainer's agents on 2026-11-14 from the public regulation texts in the corpus (quality scan); none comes from bank documents. No inspector wrote or reviewed them.",
+  "criterion": "A question is found when search_document_sections, called with only {\"query\": query}, returns a result of a gold document whose [start_char, end_char) overlaps the span of a gold section.",
+  "gold_spans": "start_char/end_char of each gold section as the section parser stores it from seed_data/documents.json.",
+  "absent": "Questions of category 'absent' have no answer in the corpus; they carry no gold and are not gated.",
+  "measurements": {
+   "real_model": "2026-11-17, Windows 11, intfloat/multilingual-e5-base at d13f1b27, corpus built with bddk-mcp build from the seed of main 37282c3 (332 documents), tools through the MCP server as served; reproduces the 2026-11-16 hand measurement (60 of 71, same 11 misses).",
+   "lexical": "2026-11-17, full seed stored in a temporary corpus with the seed catalog and no vector store (no semantic slot), as tests/test_section_search_audit.py runs it."
+  }
+ },
+ "questions": [
+  {
+   "id": "C01",
+   "category": "concept",
+   "query": "bir bankanın tek bir müşteriye kullandırabileceği kredi sınırı nedir",
+   "gold": [
+    {
+     "document_id": "mevzuat_40519",
+     "section_type": "madde",
+     "section_ref": "6",
+     "start_char": 11198,
+     "end_char": 13909
+    },
+    {
+     "document_id": "mevzuat_5411",
+     "section_type": "madde",
+     "section_ref": "54",
+     "start_char": 60253,
+     "end_char": 62421
+    }
+   ],
+   "real_model": "found",
+   "lexical": "missed"
+  },
+  {
+   "id": "C02",
+   "category": "concept",
+   "query": "yönetim kurulu kredi açma yetkisini kredi komitesine ne kadar devredebilir",
+   "gold": [
+    {
+     "document_id": "mevzuat_40520",
+     "section_type": "madde",
+     "section_ref": "4",
+     "start_char": 3115,
+     "end_char": 6556
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "C03",
+   "category": "concept",
+   "query": "bankanın yapabileceği bağış ve yardımların üst sınırı",
+   "gold": [
+    {
+     "document_id": "mevzuat_10739",
+     "section_type": "madde",
+     "section_ref": "6",
+     "start_char": 2528,
+     "end_char": 3929
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "C04",
+   "category": "concept",
+   "query": "bankalar birincil ve ikincil bilgi sistemlerini yurt dışında tutabilir mi",
+   "gold": [
+    {
+     "document_id": "mevzuat_34360",
+     "section_type": "madde",
+     "section_ref": "25",
+     "start_char": 67028,
+     "end_char": 68701
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "C05",
+   "category": "concept",
+   "query": "mevduat hesabı ne zaman zamanaşımına uğrar",
+   "gold": [
+    {
+     "document_id": "mevzuat_10735",
+     "section_type": "madde",
+     "section_ref": "8",
+     "start_char": 13841,
+     "end_char": 16933
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "C06",
+   "category": "concept",
+   "query": "dijital bankalar kimlere kredi kullandırabilir",
+   "gold": [
+    {
+     "document_id": "mevzuat_39158",
+     "section_type": "madde",
+     "section_ref": "5",
+     "start_char": 6757,
+     "end_char": 11398
+    }
+   ],
+   "real_model": "found",
+   "lexical": "missed"
+  },
+  {
+   "id": "C07",
+   "category": "concept",
+   "query": "destek hizmeti almadan önce bankanın hazırlaması gereken rapor",
+   "gold": [
+    {
+     "document_id": "mevzuat_15481",
+     "section_type": "madde",
+     "section_ref": "5",
+     "start_char": 8430,
+     "end_char": 13382
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "C08",
+   "category": "concept",
+   "query": "sorunlu alacak çözümleme birimi kredi tahsis biriminden ayrı olmalı mı",
+   "gold": [
+    {
+     "document_id": "1040",
+     "section_type": "paragraf",
+     "section_ref": "38",
+     "start_char": 18280,
+     "end_char": 18694
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "N01",
+   "category": "numeric",
+   "query": "likidite karşılama oranı asgari ne kadar olmalı",
+   "gold": [
+    {
+     "document_id": "mevzuat_19498",
+     "section_type": "madde",
+     "section_ref": "4",
+     "start_char": 2491,
+     "end_char": 4298
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "N02",
+   "category": "numeric",
+   "query": "net istikrarlı fonlama oranı en az yüzde kaç olmalıdır",
+   "gold": [
+    {
+     "document_id": "mevzuat_40203",
+     "section_type": "madde",
+     "section_ref": "4",
+     "start_char": 2743,
+     "end_char": 4025
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "N03",
+   "category": "numeric",
+   "query": "kaldıraç oranı en az yüzde kaç olmalı",
+   "gold": [
+    {
+     "document_id": "mevzuat_18990",
+     "section_type": "madde",
+     "section_ref": "4",
+     "start_char": 3020,
+     "end_char": 3338
+    },
+    {
+     "document_id": "mevzuat_18990",
+     "section_type": "madde",
+     "section_ref": "5",
+     "start_char": 3339,
+     "end_char": 3708
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "N04",
+   "category": "numeric",
+   "query": "kredi kaç gün gecikince donuk alacak sayılır",
+   "gold": [
+    {
+     "document_id": "mevzuat_22599",
+     "section_type": "madde",
+     "section_ref": "4",
+     "start_char": 2688,
+     "end_char": 8121
+    },
+    {
+     "document_id": "mevzuat_22599",
+     "section_type": "madde",
+     "section_ref": "5",
+     "start_char": 8122,
+     "end_char": 11496
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "N05",
+   "category": "numeric",
+   "query": "iç denetim birimi yöneticisinin en az kaç yıllık bankacılık deneyimi olmalı",
+   "gold": [
+    {
+     "document_id": "mevzuat_19864",
+     "section_type": "madde",
+     "section_ref": "22",
+     "start_char": 56092,
+     "end_char": 57896
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "N06",
+   "category": "numeric",
+   "query": "banka çağrı merkezinde hizmet seviyesi aylık en az yüzde kaç olmalıdır",
+   "gold": [
+    {
+     "document_id": "mevzuat_34535",
+     "section_type": "madde",
+     "section_ref": "8",
+     "start_char": 6526,
+     "end_char": 8663
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "N07",
+   "category": "numeric",
+   "query": "yabancı para net genel pozisyon özkaynak standart oranı en fazla yüzde kaç olabilir",
+   "gold": [
+    {
+     "document_id": "mevzuat_10731",
+     "section_type": "madde",
+     "section_ref": "4",
+     "start_char": 4823,
+     "end_char": 7186
+    },
+    {
+     "document_id": "mevzuat_10731",
+     "section_type": "madde",
+     "section_ref": "5",
+     "start_char": 7187,
+     "end_char": 9913
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "N08",
+   "category": "numeric",
+   "query": "üçüncü grupta sınıflandırılan krediler için ayrılacak özel karşılık oranı",
+   "gold": [
+    {
+     "document_id": "mevzuat_22599",
+     "section_type": "madde",
+     "section_ref": "11",
+     "start_char": 22597,
+     "end_char": 24591
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "N09",
+   "category": "numeric",
+   "query": "likidite karşılama oranında nakit girişleri nakit çıkışlarının yüzde kaçını aşamaz",
+   "gold": [
+    {
+     "document_id": "mevzuat_19498",
+     "section_type": "madde",
+     "section_ref": "11",
+     "start_char": 18032,
+     "end_char": 18642
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "D01",
+   "category": "definition",
+   "query": "Bankacılık Kanununa göre kredi ne demektir",
+   "gold": [
+    {
+     "document_id": "mevzuat_5411",
+     "section_type": "madde",
+     "section_ref": "48",
+     "start_char": 50992,
+     "end_char": 52202
+    }
+   ],
+   "real_model": "missed",
+   "lexical": "missed"
+  },
+  {
+   "id": "D02",
+   "category": "definition",
+   "query": "risk grubu nedir",
+   "gold": [
+    {
+     "document_id": "mevzuat_5411",
+     "section_type": "madde",
+     "section_ref": "49",
+     "start_char": 52203,
+     "end_char": 54406
+    },
+    {
+     "document_id": "mevzuat_40519",
+     "section_type": "madde",
+     "section_ref": "4",
+     "start_char": 6046,
+     "end_char": 8542
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "D03",
+   "category": "definition",
+   "query": "dijital banka ne demektir",
+   "gold": [
+    {
+     "document_id": "mevzuat_39158",
+     "section_type": "madde",
+     "section_ref": "3",
+     "start_char": 653,
+     "end_char": 6245
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "D04",
+   "category": "definition",
+   "query": "nitelikli pay tanımı nedir",
+   "gold": [
+    {
+     "document_id": "mevzuat_5411",
+     "section_type": "madde",
+     "section_ref": "3",
+     "start_char": 1047,
+     "end_char": 7033
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "D05",
+   "category": "definition",
+   "query": "donuk alacak nedir",
+   "gold": [
+    {
+     "document_id": "mevzuat_22599",
+     "section_type": "madde",
+     "section_ref": "5",
+     "start_char": 8122,
+     "end_char": 11496
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "D06",
+   "category": "definition",
+   "query": "kredilerde yeniden yapılandırma ne demektir",
+   "gold": [
+    {
+     "document_id": "mevzuat_22599",
+     "section_type": "madde",
+     "section_ref": "7",
+     "start_char": 13348,
+     "end_char": 17028
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "D07",
+   "category": "definition",
+   "query": "sermaye koruma tamponu nedir",
+   "gold": [
+    {
+     "document_id": "mevzuat_18991",
+     "section_type": "madde",
+     "section_ref": "3",
+     "start_char": 621,
+     "end_char": 2785
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "D08",
+   "category": "definition",
+   "query": "sistemik önemli banka tamponu tanımı",
+   "gold": [
+    {
+     "document_id": "mevzuat_21425",
+     "section_type": "madde",
+     "section_ref": "3",
+     "start_char": 609,
+     "end_char": 3363
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "R01",
+   "category": "exact_ref",
+   "query": "5411 sayılı Kanunun 54 üncü maddesi",
+   "gold": [
+    {
+     "document_id": "mevzuat_5411",
+     "section_type": "madde",
+     "section_ref": "54",
+     "start_char": 60253,
+     "end_char": 62421
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "R02",
+   "category": "exact_ref",
+   "query": "Kredilerin Sınıflandırılması Yönetmeliği madde 10",
+   "gold": [
+    {
+     "document_id": "mevzuat_22599",
+     "section_type": "madde",
+     "section_ref": "10",
+     "start_char": 20726,
+     "end_char": 22596
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "R03",
+   "category": "exact_ref",
+   "query": "mevzuat_22599 Madde 9",
+   "gold": [
+    {
+     "document_id": "mevzuat_22599",
+     "section_type": "madde",
+     "section_ref": "9",
+     "start_char": 19209,
+     "end_char": 20725
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "R04",
+   "category": "exact_ref",
+   "query": "943 İlke 5",
+   "gold": [
+    {
+     "document_id": "943",
+     "section_type": "ilke",
+     "section_ref": "5",
+     "start_char": 26592,
+     "end_char": 30662
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "R05",
+   "category": "exact_ref",
+   "query": "Bankaların Kredi İşlemlerine İlişkin Yönetmelik madde 12 üçüncü fıkra",
+   "gold": [
+    {
+     "document_id": "mevzuat_40520",
+     "section_type": "madde",
+     "section_ref": "12",
+     "start_char": 16247,
+     "end_char": 18083
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "R06",
+   "category": "exact_ref",
+   "query": "Bankacılık Kanunu 73. madde sırların saklanması",
+   "gold": [
+    {
+     "document_id": "mevzuat_5411",
+     "section_type": "madde",
+     "section_ref": "73",
+     "start_char": 83709,
+     "end_char": 90219
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "R07",
+   "category": "exact_ref",
+   "query": "SYR Yönetmeliği madde 25 temel gösterge yöntemi",
+   "gold": [
+    {
+     "document_id": "mevzuat_21192",
+     "section_type": "madde",
+     "section_ref": "25",
+     "start_char": 110947,
+     "end_char": 112164
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "R08",
+   "category": "exact_ref",
+   "query": "5464 sayılı Kanun madde 9 kredi kartı limiti",
+   "gold": [
+    {
+     "document_id": "mevzuat_5464",
+     "section_type": "madde",
+     "section_ref": "9",
+     "start_char": 8661,
+     "end_char": 10256
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "R09",
+   "category": "exact_ref",
+   "query": "Bankacılık Kanunu geçici madde 5",
+   "gold": [
+    {
+     "document_id": "mevzuat_5411",
+     "section_type": "gecici_madde",
+     "section_ref": "5",
+     "start_char": 266967,
+     "end_char": 267681
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "B01",
+   "category": "decision",
+   "query": "10250 sayılı Kurul Kararı",
+   "gold": [
+    {
+     "document_id": "1127",
+     "section_type": "govde",
+     "section_ref": "1",
+     "start_char": 0,
+     "end_char": 3331
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "B02",
+   "category": "decision",
+   "query": "kredili mevduat hesabı limiti hakkında kurul kararı",
+   "gold": [
+    {
+     "document_id": "1324",
+     "section_type": "govde",
+     "section_ref": "1",
+     "start_char": 0,
+     "end_char": 1560
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "B03",
+   "category": "decision",
+   "query": "11365 sayılı karar neyi düzenliyor",
+   "gold": [
+    {
+     "document_id": "1324",
+     "section_type": "govde",
+     "section_ref": "1",
+     "start_char": 0,
+     "end_char": 1560
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "B04",
+   "category": "decision",
+   "query": "29.01.2026 tarihli kurul kararı kredi kartı limitleri",
+   "gold": [
+    {
+     "document_id": "1326",
+     "section_type": "govde",
+     "section_ref": "1",
+     "start_char": 0,
+     "end_char": 4376
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "B05",
+   "category": "decision",
+   "query": "bankaların kendi hisselerini geri alması hakkında kurul kararı",
+   "gold": [
+    {
+     "document_id": "1280",
+     "section_type": "govde",
+     "section_ref": "1",
+     "start_char": 0,
+     "end_char": 958
+    }
+   ],
+   "real_model": "found",
+   "lexical": "missed"
+  },
+  {
+   "id": "B06",
+   "category": "decision",
+   "query": "2016 yılı için Türkiye pozisyonlarına uygulanacak döngüsel sermaye tamponu oranı",
+   "gold": [
+    {
+     "document_id": "702",
+     "section_type": "govde",
+     "section_ref": "1",
+     "start_char": 0,
+     "end_char": 1009
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "B07",
+   "category": "decision",
+   "query": "8948 sayılı Kurul Kararı",
+   "gold": [
+    {
+     "document_id": "775",
+     "section_type": "govde",
+     "section_ref": "1",
+     "start_char": 0,
+     "end_char": 1292
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "B08",
+   "category": "decision",
+   "query": "limiti elli bin TL altındaki kredi kartlarında asgari ödeme oranı",
+   "gold": [
+    {
+     "document_id": "1255",
+     "section_type": "govde",
+     "section_ref": "1",
+     "start_char": 0,
+     "end_char": 743
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "B09",
+   "category": "decision",
+   "query": "kalkınma ve yatırım bankalarında kredi sınırı oranları kurul kararı",
+   "gold": [
+    {
+     "document_id": "1279",
+     "section_type": "govde",
+     "section_ref": "1",
+     "start_char": 0,
+     "end_char": 3144
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "J01",
+   "category": "jargon",
+   "query": "LCR asgari oranı",
+   "gold": [
+    {
+     "document_id": "mevzuat_19498",
+     "section_type": "madde",
+     "section_ref": "4",
+     "start_char": 2491,
+     "end_char": 4298
+    }
+   ],
+   "real_model": "missed",
+   "lexical": "missed"
+  },
+  {
+   "id": "J02",
+   "category": "jargon",
+   "query": "NPL olarak sınıflandırma için gecikme gün sayısı",
+   "gold": [
+    {
+     "document_id": "mevzuat_22599",
+     "section_type": "madde",
+     "section_ref": "4",
+     "start_char": 2688,
+     "end_char": 8121
+    },
+    {
+     "document_id": "mevzuat_22599",
+     "section_type": "madde",
+     "section_ref": "5",
+     "start_char": 8122,
+     "end_char": 11496
+    }
+   ],
+   "real_model": "missed",
+   "lexical": "missed"
+  },
+  {
+   "id": "J03",
+   "category": "jargon",
+   "query": "İSEDES raporu ne sıklıkla hazırlanır",
+   "gold": [
+    {
+     "document_id": "mevzuat_19864",
+     "section_type": "madde",
+     "section_ref": "56",
+     "start_char": 103407,
+     "end_char": 104624
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "J04",
+   "category": "jargon",
+   "query": "stres testinde KKB skoru kullanımı",
+   "gold": [
+    {
+     "document_id": "946",
+     "section_type": "paragraf",
+     "section_ref": "123",
+     "start_char": 76814,
+     "end_char": 77445
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "J05",
+   "category": "jargon",
+   "query": "kaldirac orani asgari yuzde kac",
+   "gold": [
+    {
+     "document_id": "mevzuat_18990",
+     "section_type": "madde",
+     "section_ref": "4",
+     "start_char": 3020,
+     "end_char": 3338
+    },
+    {
+     "document_id": "mevzuat_18990",
+     "section_type": "madde",
+     "section_ref": "5",
+     "start_char": 3339,
+     "end_char": 3708
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "J06",
+   "category": "jargon",
+   "query": "likidte karşılama oranı minimun",
+   "gold": [
+    {
+     "document_id": "mevzuat_19498",
+     "section_type": "madde",
+     "section_ref": "4",
+     "start_char": 2491,
+     "end_char": 4298
+    }
+   ],
+   "real_model": "missed",
+   "lexical": "missed"
+  },
+  {
+   "id": "J07",
+   "category": "jargon",
+   "query": "minimum liquidity coverage ratio requirement for Turkish banks",
+   "gold": [
+    {
+     "document_id": "mevzuat_19498",
+     "section_type": "madde",
+     "section_ref": "4",
+     "start_char": 2491,
+     "end_char": 4298
+    }
+   ],
+   "real_model": "missed",
+   "lexical": "missed"
+  },
+  {
+   "id": "J08",
+   "category": "jargon",
+   "query": "single obligor limit large exposure limit for bank loans",
+   "gold": [
+    {
+     "document_id": "mevzuat_40519",
+     "section_type": "madde",
+     "section_ref": "6",
+     "start_char": 11198,
+     "end_char": 13909
+    },
+    {
+     "document_id": "mevzuat_5411",
+     "section_type": "madde",
+     "section_ref": "54",
+     "start_char": 60253,
+     "end_char": 62421
+    }
+   ],
+   "real_model": "missed",
+   "lexical": "missed"
+  },
+  {
+   "id": "J09",
+   "category": "jargon",
+   "query": "YP NGP standart oranı sınırı",
+   "gold": [
+    {
+     "document_id": "mevzuat_10731",
+     "section_type": "madde",
+     "section_ref": "4",
+     "start_char": 4823,
+     "end_char": 7186
+    },
+    {
+     "document_id": "mevzuat_10731",
+     "section_type": "madde",
+     "section_ref": "5",
+     "start_char": 7187,
+     "end_char": 9913
+    }
+   ],
+   "real_model": "missed",
+   "lexical": "missed"
+  },
+  {
+   "id": "J10",
+   "category": "jargon",
+   "query": "KMH limiti gelirin kaç katı olabilir",
+   "gold": [
+    {
+     "document_id": "1324",
+     "section_type": "govde",
+     "section_ref": "1",
+     "start_char": 0,
+     "end_char": 1560
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "F01",
+   "category": "formula",
+   "query": "kaldıraç oranı nasıl hesaplanır",
+   "gold": [
+    {
+     "document_id": "mevzuat_18990",
+     "section_type": "madde",
+     "section_ref": "4",
+     "start_char": 3020,
+     "end_char": 3338
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "F02",
+   "category": "formula",
+   "query": "likidite karşılama oranı hesaplama formülü",
+   "gold": [
+    {
+     "document_id": "mevzuat_19498",
+     "section_type": "madde",
+     "section_ref": "4",
+     "start_char": 2491,
+     "end_char": 4298
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "F03",
+   "category": "formula",
+   "query": "net istikrarlı fonlama oranı nasıl hesaplanır",
+   "gold": [
+    {
+     "document_id": "mevzuat_40203",
+     "section_type": "madde",
+     "section_ref": "4",
+     "start_char": 2743,
+     "end_char": 4025
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "F04",
+   "category": "formula",
+   "query": "temel gösterge yöntemiyle operasyonel riske esas tutar nasıl hesaplanır",
+   "gold": [
+    {
+     "document_id": "mevzuat_21192",
+     "section_type": "madde",
+     "section_ref": "25",
+     "start_char": 110947,
+     "end_char": 112164
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "F05",
+   "category": "formula",
+   "query": "bankacılık hesaplarından kaynaklanan faiz oranı riski standart rasyosu nasıl hesaplanır ve sınırı nedir",
+   "gold": [
+    {
+     "document_id": "mevzuat_42628",
+     "section_type": "madde",
+     "section_ref": "4",
+     "start_char": 3006,
+     "end_char": 3589
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "F06",
+   "category": "formula",
+   "query": "sermaye yeterliliği standart oranı formülü",
+   "gold": [
+    {
+     "document_id": "mevzuat_21192",
+     "section_type": "madde",
+     "section_ref": "3",
+     "start_char": 583,
+     "end_char": 18959
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "X01",
+   "category": "absent",
+   "query": "bankalar için kurumlar vergisi oranı yüzde kaç",
+   "gold": [],
+   "real_model": null,
+   "lexical": null
+  },
+  {
+   "id": "X02",
+   "category": "absent",
+   "query": "TCMB zorunlu karşılık oranları nedir",
+   "gold": [],
+   "real_model": null,
+   "lexical": null
+  },
+  {
+   "id": "X03",
+   "category": "absent",
+   "query": "MASAK şüpheli işlem bildirimi kaç gün içinde yapılmalıdır",
+   "gold": [],
+   "real_model": null,
+   "lexical": null
+  },
+  {
+   "id": "X04",
+   "category": "absent",
+   "query": "12999 sayılı Kurul Kararı",
+   "gold": [],
+   "real_model": null,
+   "lexical": null
+  },
+  {
+   "id": "X05",
+   "category": "absent",
+   "query": "SPK Seri II-14.1 tebliğine göre ara dönem finansal rapor yayımlama süresi",
+   "gold": [],
+   "real_model": null,
+   "lexical": null
+  },
+  {
+   "id": "X06",
+   "category": "absent",
+   "query": "kredi faizlerinde BSMV oranı",
+   "gold": [],
+   "real_model": null,
+   "lexical": null
+  },
+  {
+   "id": "X07",
+   "category": "absent",
+   "query": "15.07.2025 tarihli ve 11250 sayılı Kurul Kararı",
+   "gold": [],
+   "real_model": null,
+   "lexical": null
+  },
+  {
+   "id": "T01",
+   "category": "multi_doc",
+   "query": "zamanaşımına uğrayan hesaplarda hak sahiplerine mektup gönderilmesi için alt tutar nedir",
+   "gold": [
+    {
+     "document_id": "mevzuat_10735",
+     "section_type": "madde",
+     "section_ref": "8",
+     "start_char": 13841,
+     "end_char": 16933
+    },
+    {
+     "document_id": "1220",
+     "section_type": "govde",
+     "section_ref": "1",
+     "start_char": 0,
+     "end_char": 785
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "T02",
+   "category": "multi_doc",
+   "query": "kredi sınırları Bankacılık Kanunu ve Risk Grupları Yönetmeliğinde nasıl düzenlenmiştir",
+   "gold": [
+    {
+     "document_id": "mevzuat_5411",
+     "section_type": "madde",
+     "section_ref": "54",
+     "start_char": 60253,
+     "end_char": 62421
+    },
+    {
+     "document_id": "mevzuat_40519",
+     "section_type": "madde",
+     "section_ref": "6",
+     "start_char": 11198,
+     "end_char": 13909
+    }
+   ],
+   "real_model": "missed",
+   "lexical": "missed"
+  },
+  {
+   "id": "T03",
+   "category": "multi_doc",
+   "query": "donuk alacak tanımı ve donuk alacaklar için ayrılacak özel karşılık oranları",
+   "gold": [
+    {
+     "document_id": "mevzuat_22599",
+     "section_type": "madde",
+     "section_ref": "5",
+     "start_char": 8122,
+     "end_char": 11496
+    },
+    {
+     "document_id": "mevzuat_22599",
+     "section_type": "madde",
+     "section_ref": "11",
+     "start_char": 22597,
+     "end_char": 24591
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "T04",
+   "category": "multi_doc",
+   "query": "likidite karşılama oranı yönetmeliği ekindeki yüksek kaliteli likit varlıklar ve oranlar",
+   "gold": [
+    {
+     "document_id": "mevzuat_19498",
+     "section_type": "ek",
+     "section_ref": "1",
+     "start_char": 50924,
+     "end_char": 64528
+    },
+    {
+     "document_id": "mevzuat_19498",
+     "section_type": "ek",
+     "section_ref": "2",
+     "start_char": 71413,
+     "end_char": 85826
+    },
+    {
+     "document_id": "mevzuat_19498",
+     "section_type": "madde",
+     "section_ref": "6",
+     "start_char": 8449,
+     "end_char": 11437
+    }
+   ],
+   "real_model": "missed",
+   "lexical": "missed"
+  },
+  {
+   "id": "T05",
+   "category": "multi_doc",
+   "query": "konut kredilerinde güncel kredi değer oranı konut değerine göre",
+   "gold": [
+    {
+     "document_id": "1327",
+     "section_type": "govde",
+     "section_ref": "1",
+     "start_char": 0,
+     "end_char": 2145
+    }
+   ],
+   "real_model": "found",
+   "lexical": "missed"
+  },
+  {
+   "id": "T06",
+   "category": "multi_doc",
+   "query": "yeniden yapılandırılan kredinin canlı alacak sayılması için izleme süresi ve ödeme şartı",
+   "gold": [
+    {
+     "document_id": "mevzuat_22599",
+     "section_type": "madde",
+     "section_ref": "7",
+     "start_char": 13348,
+     "end_char": 17028
+    }
+   ],
+   "real_model": "found",
+   "lexical": "missed"
+  },
+  {
+   "id": "A01",
+   "category": "ambiguous",
+   "query": "faiz oranı riski standart yaklaşım",
+   "gold": [
+    {
+     "document_id": "mevzuat_42628",
+     "section_type": "madde",
+     "section_ref": "4",
+     "start_char": 3006,
+     "end_char": 3589
+    },
+    {
+     "document_id": "mevzuat_42628",
+     "section_type": "madde",
+     "section_ref": "5",
+     "start_char": 3590,
+     "end_char": 5340
+    }
+   ],
+   "real_model": "missed",
+   "lexical": "missed"
+  },
+  {
+   "id": "A02",
+   "category": "ambiguous",
+   "query": "operasyonel riske esas tutarın hesaplanması",
+   "gold": [
+    {
+     "document_id": "mevzuat_21192",
+     "section_type": "madde",
+     "section_ref": "24",
+     "start_char": 110227,
+     "end_char": 110946
+    },
+    {
+     "document_id": "mevzuat_21192",
+     "section_type": "madde",
+     "section_ref": "25",
+     "start_char": 110947,
+     "end_char": 112164
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "A03",
+   "category": "ambiguous",
+   "query": "kredi riskine esas tutar standart yaklaşım risk ağırlıkları",
+   "gold": [
+    {
+     "document_id": "mevzuat_21192",
+     "section_type": "madde",
+     "section_ref": "6",
+     "start_char": 37214,
+     "end_char": 43326
+    }
+   ],
+   "real_model": "missed",
+   "lexical": "missed",
+   "debatable_gold": "The gold is mevzuat_21192 madde 6; the risk weights the query asks for are in madde 7 and EK-1 (maintainer's diagnosis of the 11 misses, 2026-11-16)."
+  },
+  {
+   "id": "A04",
+   "category": "ambiguous",
+   "query": "bağımsız denetim kuruluşunun listeden geçici olarak çıkarılması",
+   "gold": [
+    {
+     "document_id": "mevzuat_20645",
+     "section_type": "madde",
+     "section_ref": "14",
+     "start_char": 17813,
+     "end_char": 18754
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "A05",
+   "category": "ambiguous",
+   "query": "ertelenmiş vergi varlığının özkaynak hesaplamasında indirilmesi",
+   "gold": [
+    {
+     "document_id": "mevzuat_18799",
+     "section_type": "madde",
+     "section_ref": "9",
+     "start_char": 18782,
+     "end_char": 29809
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  },
+  {
+   "id": "A06",
+   "category": "ambiguous",
+   "query": "yeniden yapılandırma kredi",
+   "gold": [
+    {
+     "document_id": "mevzuat_22599",
+     "section_type": "madde",
+     "section_ref": "7",
+     "start_char": 13348,
+     "end_char": 17028
+    }
+   ],
+   "real_model": "found",
+   "lexical": "found"
+  }
+ ]
+}

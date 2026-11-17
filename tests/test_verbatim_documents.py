@@ -238,6 +238,7 @@ def test_quotation_argument_accepts_exact_boundaries_and_rejects_whitespace_only
         adapter.validate_python("   \n\t ")
 
 
+@pytest.mark.network  # the real tokenizer comes from the Hugging Face hub, which transformers queries even when cached
 def test_real_token_chunker_produces_exact_document_slices_for_every_document():
     """The production retrieval profile's chunker must emit exact stored slices."""
     from bddk_mcp.store.vector_store import RetrievalProfileError, VectorStore, _chunk_document

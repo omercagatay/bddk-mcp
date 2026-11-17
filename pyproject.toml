@@ -66,9 +66,12 @@ gpu = [
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 pythonpath = ["."]
-addopts = "-m 'not gpu'"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-m 'not gpu' --strict-markers"
+xfail_strict = true
 markers = [
     "gpu: requires explicit offline GPU/OCR provisioning via BDDK_REQUIRE_GPU_OCR=1",
+    "network: may open non-loopback connections; exempt from the autouse network guard in tests/conftest.py",
 ]
 
 [tool.ruff]

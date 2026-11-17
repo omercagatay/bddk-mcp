@@ -10,7 +10,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
+  # A push to main gets a group of its own, so its run is neither cancelled nor replaced while pending by the next
+  # merge: Railway skips the deployment of a commit whose check suite was cancelled.
+  group: ci-${{ github.workflow }}-${{ github.ref == 'refs/heads/main' && github.sha || github.ref }}
   cancel-in-progress: true
 
 env:
