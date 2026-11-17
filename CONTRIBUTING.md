@@ -35,7 +35,7 @@ uv run python scripts/check_repository_hygiene.py
 uv run pytest tests/ -m "not gpu" --strict-markers -q
 ```
 
-The complete CI matrix also exercises Python 3.12 and 3.13, package artifacts, container recipes and the `image-smoke` job, which builds the image and calls one tool in the running container. CI and the Dockerfile use the same `uv` version (0.12.3); the hygiene check fails when they differ. The whole suite runs without any service; only the `gpu` marker is skipped by default.
+The complete CI matrix also exercises Python 3.12 and 3.13, package artifacts, container recipes and the `image-smoke` job, which builds the image, calls one catalog search in the running container and runs the section-search audit set against it (see [Document Quality](docs/DOCUMENT_QUALITY.md#section-search-audit-set)). CI and the Dockerfile use the same `uv` version (0.12.3); the hygiene check fails when they differ. The whole suite runs without any service; only the `gpu` marker is skipped by default.
 
 ## Branch and pull-request workflow
 

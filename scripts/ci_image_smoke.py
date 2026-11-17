@@ -4,8 +4,9 @@
 Usage: uv run python scripts/ci_image_smoke.py http://localhost:8000
 
 Connects to <base-url>/mcp, initializes a session, checks that tools/list returns exactly the
-reviewed tool surface and that one catalog search answers from the corpus baked into the image.
-Talks only to the URL it is given. Exits non-zero with a message on any failure.
+reviewed tool surface, that one catalog search answers from the corpus baked into the image, and that
+search_document_sections finds the gold provision of exactly the audit questions recorded as found with the real
+model (tests/fixtures/section_search_audit.json). Talks only to the URL it is given. Exits non-zero with a message on any failure.
 """
 
 from __future__ import annotations
@@ -14,6 +15,7 @@ import argparse
 import asyncio
 import sys
 
+from eval_section_search import difference, gated_questions, is_found
 from mcp import ClientSession
 from mcp.client.streamable_http import streamable_http_client
 
@@ -55,7 +57,24 @@ async def run_smoke(base_url: str) -> None:
                 raise SmokeFailure("first search result does not name a document (empty title)")
             print(f"first result: {first['title']}")
 
-    print(f"smoke ok: {len(names)} tools, {len(items)} search results")
+            # Section-search audit set against the real model and corpus of the image: every outcome must equal the
+            # recorded real_model outcome (scripts/eval_section_search.py is the local equivalent). The gold spans are
+            # stored in the data file, so this costs one request per question (the server allows 120 a minute).
+            questions = gated_questions()
+            lines, found_count = [], 0
+            for question in questions:
+                answer = await session.call_tool("search_document_sections", {"query": question["query"]})
+                results = [] if answer.isError else (answer.structuredContent or {}).get("results") or []
+                found = is_found(results, question["gold"])
+                found_count += found
+                if line := difference(question, found, "real_model", results):
+                    lines.append(line)
+            recorded = sum(q["real_model"] == "found" for q in questions)
+            print(f"section search audit: {found_count} of {len(questions)} found, recorded {recorded}")
+            if lines:
+                raise SmokeFailure("section search audit differs from the recorded outcomes:\n" + "\n".join(lines))
+
+    print(f"smoke ok: {len(names)} tools, {len(items)} search results, {len(questions)} audit questions")
 
 
 def _leaf_errors(exc: BaseException) -> list[str]:

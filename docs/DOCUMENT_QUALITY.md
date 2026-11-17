@@ -135,6 +135,20 @@ uv run python scripts/calibrate_relevance.py --corpus corpus/bddk.sqlite --out c
 
 The script opens the corpus file read-only, loads the real model and prints, per group, the raw and shown top-1 distributions, the band shares and the rank-1/top-5 counts; it writes nothing except the optional `--out` file. It is not run in CI.
 
+## Section-search audit set
+
+`tests/fixtures/section_search_audit.json` holds 78 audit questions with the provisions that answer them: 71 answerable ones with their gold sections (document, section type, reference and the stored character span) and 7 whose answer is not in the corpus, which are carried but not gated. The maintainer's agents wrote the questions and the gold on 2026-11-14 from the public regulation texts in the corpus; no inspector wrote or reviewed them, and one gold answer (A03) is marked debatable. A question counts as found when `search_document_sections`, called with only the query, returns a result of a gold document that overlaps a gold section's span. Each question records its outcome on two paths, measured on 2026-11-17: with the real model 60 of 71 are found (the same 11 misses as the hand measurement of 2026-11-16), lexically 55 of 71.
+
+- **Lexical gate, every test run** (`tests/test_section_search_audit.py`): the full seed with its catalog and no vector store, so without the semantic slot. One case per answerable question; a question recorded as missed is a strict xfail, so a change that finds it fails like one that loses a recorded find, and the record in the data file has to be updated with the change. A second test checks that the gold spans equal the sections the parser stores from the seed.
+- **Real-model gate, locally and in CI** (`scripts/eval_section_search.py`, and the `image-smoke` job through `scripts/ci_image_smoke.py`): the server as it serves, with the real model, against the recorded `real_model` outcomes; it prints each lost or gained question and exits 1 on any difference (2 on a usage or corpus error).
+
+Both gates prove only that the outcomes on these 71 questions did not change; they do not show that search finds the right provision for other questions, that a gold answer is legally right, or that the text is current. They are an evaluation written by the maintainer's agents, not by an inspector. A change that deliberately changes an outcome updates the data file in the same pull request.
+
+```bash
+uv run pytest tests/test_section_search_audit.py -q
+uv run python scripts/eval_section_search.py --corpus corpus/bddk.sqlite
+```
+
 ## Scan Commands
 
 Run the canonical corpus quality scan and write Markdown, CSV, JSON, and snippet outputs (`--db` reads the corpus file at `BDDK_CORPUS_PATH`, default `corpus/bddk.sqlite`; `--corpus PATH` names another file):
