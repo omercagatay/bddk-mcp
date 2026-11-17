@@ -2,18 +2,28 @@
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "permissions": {
     "allow": [
-      "Bash(railway *)",
+      "Bash(railway deployment list *)",
+      "Bash(railway logs *)",
+      "Bash(railway status *)",
+      "Bash(railway whoami *)",
+      "Bash(railway config plan *)",
       "mcp__railway",
-      "Bash(uv run pytest *)",
-      "PowerShell(uv run pytest *)",
-      "Bash(uv run ruff check *)",
-      "PowerShell(uv run ruff check *)",
-      "Bash(uv run ruff format --check *)",
-      "PowerShell(uv run ruff format --check *)",
+      "Bash(uv run pytest tests/*)",
+      "PowerShell(uv run pytest tests/*)",
+      "Bash(uv run ruff check .)",
+      "PowerShell(uv run ruff check .)",
+      "Bash(uv run ruff format --check .)",
+      "PowerShell(uv run ruff format --check .)",
       "Bash(uv run python scripts/check_repository_hygiene.py)",
       "PowerShell(uv run python scripts/check_repository_hygiene.py)",
       "Bash(uv lock --check)",
       "PowerShell(uv lock --check)"
+    ],
+    "deny": [
+      "Bash(uv run pytest *--basetemp*)",
+      "PowerShell(uv run pytest *--basetemp*)",
+      "Bash(uv run pytest *--pastebin*)",
+      "PowerShell(uv run pytest *--pastebin*)"
     ]
   },
   "hooks": {
@@ -42,7 +52,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run --project \"$CLAUDE_PROJECT_DIR\" python \"$CLAUDE_PROJECT_DIR/.claude/hooks/ruff_after_edit.py\""
+            "command": "uv run --no-sync --project \"$CLAUDE_PROJECT_DIR\" python \"$CLAUDE_PROJECT_DIR/.claude/hooks/ruff_after_edit.py\""
           }
         ]
       }

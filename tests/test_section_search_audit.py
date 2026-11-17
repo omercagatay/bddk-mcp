@@ -61,7 +61,9 @@ def audit(tmp_path_factory):
 
 def _case(q: dict):
     marks = []
-    if q["lexical"] == "missed":
+    if q.get("platform_dependent"):
+        marks.append(pytest.mark.xfail(strict=False, reason=f"platform dependent: {q['note']}"))
+    elif q["lexical"] == "missed":
         marks.append(pytest.mark.xfail(strict=True, raises=AssertionError, reason=f"recorded missed: {q['query']}"))
     return pytest.param(q, id=q["id"], marks=marks)
 
@@ -84,6 +86,7 @@ def test_audit_data_is_well_formed(audit):
             assert q["gold"] == [] and outcomes == (None, None), q["id"]
             continue
         assert q["gold"] and set(outcomes) <= {"found", "missed"}, q["id"]
+        assert not q.get("platform_dependent") or q.get("note"), q["id"]  # an ungated question says why
         for g in q["gold"]:
             key = (g["document_id"], g["section_type"], g["section_ref"])
             assert audit["spans"][key] == [(g["start_char"], g["end_char"])], (q["id"], key)

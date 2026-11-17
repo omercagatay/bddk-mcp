@@ -45,9 +45,13 @@ def is_found(results: list[dict], gold: list[dict]) -> bool:
 
 
 def difference(question: dict, found: bool, recorded_key: str, results: list[dict]) -> str | None:
-    """One line when the outcome differs from the recorded one, else None."""
+    """One line when the outcome differs from the recorded one, else None.
+
+    A question marked ``platform_dependent`` (its outcome was measured to differ between Windows and Linux; the
+    data file says why in ``note``) is never reported: one record cannot be right on both.
+    """
     recorded = question[recorded_key] == "found"
-    if found == recorded:
+    if found == recorded or question.get("platform_dependent"):
         return None
     top = ", ".join(f"{r.get('document_id')}:{r.get('section_type')}:{r.get('section_ref')}" for r in results)
     word = "GAINED" if found else "LOST"

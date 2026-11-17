@@ -42,6 +42,28 @@ def test_non_python_file_is_ignored(tmp_path):
     assert run_hook(edit_event(sample)).returncode == 0
 
 
+def test_a_ruff_module_beside_the_edited_file_is_not_executed(tmp_path):
+    marker = tmp_path / "executed"
+    (tmp_path / "ruff.py").write_text(f"open({str(marker)!r}, 'w').close()\n", encoding="utf-8")
+    sample = tmp_path / "sample.py"
+    sample.write_text("VALUE = 1\n", encoding="utf-8")
+    assert run_hook(edit_event(sample)).returncode == 0
+    assert not marker.exists()
+
+
+def test_permission_rules_stay_narrow():
+    permissions = json.loads(SETTINGS.read_text(encoding="utf-8"))["permissions"]
+    shell_rules = [rule for rule in permissions["allow"] if rule.startswith(("Bash(", "PowerShell("))]
+    # No shell rule ends in a wildcard right after the program name (`railway *`, `uv *`), no rule lets ruff rewrite
+    # files, and Railway is read-only: deploying, running commands and applying configuration always prompt.
+    assert not [rule for rule in shell_rules if re.fullmatch(r"\w+\((\w+) \*\)", rule)]
+    assert not [rule for rule in shell_rules if "ruff" in rule and "*" in rule]
+    railway = [rule for rule in shell_rules if "railway" in rule]
+    assert railway and all(re.search(r"railway (deployment list|logs|status|whoami|config plan) ", r) for r in railway)
+    for flag in ("--basetemp", "--pastebin"):
+        assert any(flag in rule for rule in permissions["deny"]), flag
+
+
 @pytest.mark.parametrize("stdin", ["", "not json", "[]", '{"tool_input": {}}', '{"tool_input": {"file_path": null}}'])
 def test_empty_or_malformed_input_exits_silently(stdin):
     result = run_hook(stdin)

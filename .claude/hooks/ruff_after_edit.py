@@ -21,7 +21,8 @@ if path.suffix != ".py" or not path.is_file():
 top = subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=path.parent, capture_output=True, text=True)
 cwd = top.stdout.strip() if top.returncode == 0 else path.parent
 result = subprocess.run(
-    [sys.executable, "-m", "ruff", "check", "--force-exclude", "--output-format", "concise", str(path.resolve())],
+    # -P keeps the working directory off sys.path, so a ruff.py beside the edited file is linted, never executed.
+    [sys.executable, "-P", "-m", "ruff", "check", "--force-exclude", "--output-format", "concise", str(path.resolve())],
     cwd=cwd,
     capture_output=True,
     text=True,

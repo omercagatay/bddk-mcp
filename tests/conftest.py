@@ -128,6 +128,10 @@ def network_guard(request, monkeypatch):
     (IP literals pass: they need no lookup) and, on Windows, the proactor event loop's ``connect``, which calls
     ConnectEx without going through ``socket.socket.connect``. A blocked attempt also fails the test at teardown, so a
     caller that catches the exception broadly cannot hide it. Yields the list of blocked targets.
+
+    Not covered: ``sendto`` on an unconnected UDP socket, ``gethostbyname``/``getnameinfo``, child processes, and
+    anything a module- or session-scoped fixture or an import does before the first test (none of these is used for
+    network access in this code base today).
     """
     blocked: list[str] = []
     if request.node.get_closest_marker("network"):

@@ -32,6 +32,72 @@ kaldırıldı (Git etiketi `archive/postgres-2026-11-10`); güncel corpus sözle
 
 ## [Yayınlanmadı] — hedef paket sürümü 5.0.1
 
+### Eklendi — doğrulama döngüleri, arama değerlendirme kapısı ve yönerge dosyaları (2026-11-17)
+
+Servisin davranışı ve corpus değişmedi; değişen, bir değişikliğin nasıl
+doğrulandığı ve ajanların hangi kurallarla çalıştığı.
+
+Arama değerlendirmesi artık depoda ve geçti/kaldı sonucu veriyor:
+
+- `tests/fixtures/section_search_audit.json`: 78 denetim sorusu (71'i cevaplanabilir)
+  ve beklenen hükümleri. Soruları ve cevapları bakımcının ajanları 2026-11-14'te
+  corpus'taki kamuya açık metinlerden yazdı; hiçbir müfettiş yazmadı ya da
+  incelemedi, bir cevap (A03) tartışmalı olarak işaretli.
+- Her test çalıştırmasında (`tests/test_section_search_audit.py`): semantic slot
+  olmadan 71 sorunun 55'i bulunur; kaçırıldığı kayıtlı 16 soru strict xfail'dir,
+  yani bir sorunun kaybedilmesi de fark edilmeden kazanılması da testi kırar.
+- Gerçek modelle (`scripts/eval_section_search.py --corpus PATH` ve CI'da
+  `image-smoke`): 71 sorunun 60'ı; kayıttan sapan her soru yazılır ve çıkış kodu 1
+  olur. Kayıt, 2026-11-16 ölçümüyle soru soru aynıdır.
+- Sınır: iki kapı da yalnızca bu 71 sorudaki sonuçların değişmediğini kanıtlar;
+  başka sorular, cevabın hukuken doğruluğu ya da metnin güncelliği hakkında bir şey
+  söylemez. Kayıt Windows'ta ölçüldü; Linux'taki ilk çalışma bu PR'ın CI'ıdır.
+
+Yerel doğrulama döngüleri çalışır hâle geldi:
+
+- `.claude/settings.json` hook'ları `jq` kurulu olmadığı için hiç çalışmıyordu.
+  Commit kapısı artık Bash ve PowerShell'de `if` filtresiyle çalışır (ruff check ve
+  format --check; `cd … && git commit` de yakalanır). Düzenleme sonrası hook
+  (`.claude/hooks/ruff_after_edit.py`) dosyayı düzeltmez, bulguyu bildirir.
+- İzin listesi: test, lint, format kontrolü, hygiene ve kilit kontrolü sorulmadan
+  çalışır. `Bash(railway *)` girdisi salt okunur komutlara daraltıldı; shell'den
+  deploy, `railway run` ve yapılandırma uygulama artık her seferinde sorar
+  (`mcp__railway` girdisi değişmedi: Railway MCP sunucusu bağlıysa araçları hâlâ
+  sorulmadan çalışır; sahibin kararına bırakıldı). `pytest` için
+  `--basetemp` ve `--pastebin` reddedilir; ruff yalnızca dosya değiştirmeyen
+  biçimiyle izinlidir.
+- pytest: `--strict-markers`, strict xfail, asyncio fixture loop scope. Loopback
+  dışına bağlanan ya da yerel olmayan bir adı çözen birim testi artık kırılır
+  (`tests/conftest.py`, Windows proactor yolu dahil); gerçek tokenizer'ı yükleyen
+  tek test `network` ile işaretli.
+- CI: `main`'e yapılan her push kendi concurrency grubunda çalışır; sonraki merge
+  onu iptal etmez ve bekleyen çalışmanın yerine geçmez (Railway, check suite'i
+  iptal edilen commit'in deploy'unu atlıyordu).
+
+Yönerge dosyaları (`/doctor prompt-audit`, hedef: oturumun modeli):
+
+- `AGENTS.md`: modül haritası `docs/REPOSITORY_STRUCTURE.md`'ye bırakıldı (buradaki
+  kopya kaymıştı: CLI listesinde `check-updates` yoktu); yeniden derleme kuralları
+  madde madde yazıldı; tarihli anlatım çıkarıldı, kurallar, gerekçeler ve Git
+  etiketleri kaldı; graphify komutları `CONTRIBUTING.md`'ye taşındı, kuralları
+  burada kaldı.
+- Sahibin kararları kurallara yazıldı. Yalnızca depoyu bakan Claude Code ajanı için
+  (`CLAUDE.md`, "Owner's mandate"; `AGENTS.md`'deki genel kurallar diğer ajanlar
+  için aynen duruyor): tasarım kararları ve yerel dallardaki commit'ler ajanda;
+  `git push`, merge, deploy, corpus ve `seed_data/` değişikliği, şema değişikliği ve
+  yıkıcı işlemler için açık onay şart ve bir onay sonrakine taşınmaz. Tek istisna
+  `dependabot[bot]` PR'larının merge'i, sınırları, embedding paketleri için ek
+  ölçüm şartı ve "önce sor" listesiyle. En üst model katmanı, müfettişin
+  dayanabileceği işlerin bağımsız ikinci incelemesi için kullanılabilir, aynı anda
+  bir ajan.
+- `CLAUDE.md`: önce `@AGENTS.md`, altında Claude Code'a özel kurallar; danışman
+  model adıyla değil, sahibin ayarıyla tanımlanır.
+- Bu değişiklik birleştirilmeden önce en üst modelde bağımsız incelendi; inceleme
+  yeniden yazımda anlamı değişen iki kuralı (snapshot değişikliğinin `build`
+  tarafından fark edilmediği; onarım aracında `BDDK_REPAIR_GPU_HOST`), fazla geniş
+  izin girdilerini ve hook'un denetlemesi gereken bir dosyayı çalıştırabildiğini
+  buldu; hepsi düzeltildi.
+
 ### Değişti — durum belgesi: olgunluk değerlendirmesi ve eskimiş rakamlar (2026-11-17)
 
 Yalnızca belge; kod, seed ve servis davranışı değişmedi.
