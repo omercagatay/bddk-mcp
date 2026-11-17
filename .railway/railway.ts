@@ -1,5 +1,5 @@
-// Railway configuration of the development/preview service (Infrastructure as Code). It replaces `railway.toml`,
-// which Railway stops reading on 2026-12-01. Railway is not a bank deployment path (none is maintained; see
+// Railway configuration of the development/preview service (Infrastructure as Code). It replaced `railway.toml`
+// (applied to the service and the old file removed on 2026-11-17). Railway is not a bank deployment path (none is maintained; see
 // docs/DEPLOYMENT.md#bank-deployment). The corpus file is built into the image, so the service needs no database.
 //
 // Variables are not managed here (`variables: { managed: false }`): they stay in Railway and never enter source.
@@ -23,10 +23,12 @@ export default defineRailway(() => {
   const bddkMcp = service("bddk-mcp", {
     // checkSuites: a deployment waits for the commit's check suites (CI) and is skipped when one fails.
     source: github("omercagatay/bddk-mcp", { branch: "main", checkSuites: true }),
-    build: { buildEnvironment: "V3", builder: "dockerfile", dockerfilePath: "Dockerfile" },
+    build: { buildEnvironment: "V3", builder: "DOCKERFILE", dockerfilePath: "Dockerfile" },
     healthcheck: "/health/ready",
     healthcheckTimeout: 300,
-    deploy: { restartPolicyType: "ON_FAILURE", restartPolicyMaxRetries: 3 },
+    // Restart on failure is Railway's default; the environment does not store it, so declaring it here would
+    // show as a pending change on every plan. Only the retry limit is set.
+    deploy: { restartPolicyMaxRetries: 3 },
     replicas: { "europe-west4-drams3a": 1 },
     domains: ["mcp.bankreg.app"],
   });

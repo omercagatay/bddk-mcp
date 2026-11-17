@@ -32,13 +32,41 @@ kaldırıldı (Git etiketi `archive/postgres-2026-11-10`); güncel corpus sözle
 
 ## [Yayınlanmadı] — hedef paket sürümü 5.0.1
 
+### Kaldırıldı — `railway.toml`; Railway geçişi tamamlandı (2026-11-17)
+
+`.railway/railway.ts` 2026-11-17'de sabitlenmiş bir plandan `railway config apply`
+ile canlı servise uygulandı (0 eklenen, 2 değişen, 0 silinen). Uygulama bir
+deployment başlattı; deployment başarılı oldu ve `/health/ready` 200 döndü. Ortam
+yapılandırması artık healthcheck yolunu (`/health/ready`), süresini (300 sn),
+yeniden deneme sınırını (3) ve builder'ı (`DOCKERFILE`) taşıyor; bu yüzden
+`railway.toml` kaldırıldı.
+
+- `.railway/railway.ts` Railway'in sakladığı değerlerle hizalandı: builder
+  `"DOCKERFILE"` (küçük harfli yazım uygulanıyordu ama her planda fark olarak
+  görünüyordu) ve `restartPolicyType` satırı çıkarıldı (ON_FAILURE Railway'in
+  belgelenmiş varsayılanıdır, ortam bunu saklamaz; servis ayarı ON_FAILURE
+  gösterir). Bu iki düzeltmeyle `railway config plan` "already up to date" diyor.
+- `railway.toml` hygiene allowlist'inden ve belgelerden çıkarıldı.
+- Düzeltme: bir önceki girdi "taşıma yapılmazsa ilk deploy Dockerfile'ı kullanmaz"
+  diyordu; bu yanlıştı. Railway'in belgesi kökte `Dockerfile` bulduğunda her zaman
+  onunla derlediğini söylüyor. Taşıma yapılmasaydı kaybolacak olan healthcheck
+  (yol ve süre) ile 3 denemelik sınırdı (belgelenmiş varsayılan 10).
+- Gözlenen tutarsızlık: uygulamadan sonra ortam yapılandırması builder'ı
+  `DOCKERFILE` gösterirken `serviceInstance.builder` alanı `RAILPACK` göstermeye
+  devam ediyor. Belgeye göre kökteki `Dockerfile` her iki durumda da kullanılır.
+- Doğrulanmayan: `railway.toml` olmadan yapılan ilk deployment bu değişikliğin
+  merge'iyle gerçekleşir. Geçme ölçütü: deployment kaydında yapılandırma dosyası
+  yok, builder `DOCKERFILE`, derleme logunda corpus adımı (332 belge, 12.837 chunk),
+  healthcheck `/health/ready`.
+
 ### Eklendi — Railway yapılandırması Infrastructure as Code olarak (2026-11-17)
 
 Railway, `railway.toml` (Config as Code) dosyasını 2026-12-01'de okumayı
 bırakıyor. Servisin kendi ayarlarında builder Railpack ve healthcheck boş; Dockerfile
 ile derleme, `/health/ready` healthcheck'i (300 sn) ve yeniden başlatma politikası
-(ON_FAILURE, 3 deneme) bugün yalnızca bu dosyadan geliyor. Yani taşıma yapılmazsa o
-tarihten sonraki ilk deploy Dockerfile'ı kullanmaz.
+(ON_FAILURE, 3 deneme) bugün yalnızca bu dosyadan geliyor. (Bu girdinin ilk hâli
+"taşıma yapılmazsa ilk deploy Dockerfile'ı kullanmaz" diyordu; yanlıştı, üstteki
+girdideki düzeltmeye bakın: kaybolacak olan healthcheck ve deneme sınırıydı.)
 
 - `.railway/railway.ts` aynı dört ayarı tanımlar; kaynak (`main`, CI check suite
   beklenir), bölge/replica ve `mcp.bankreg.app` domain'i mevcut hâliyle yazılıdır.
