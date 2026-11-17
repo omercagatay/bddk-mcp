@@ -82,6 +82,34 @@ Do not force-push `main`, commit directly around its protection rules, or leave 
 - Update [the documentation index](docs/README.md) when adding a top-level document.
 - Add user-visible changes to `CHANGELOG.md` under the unreleased section.
 
+## Code knowledge graph (graphify, optional)
+
+[graphify](https://github.com/Graphify-Labs/graphify) builds a navigable code graph for exploring dependencies and callers. It is an optional developer aid in its own `graph` dependency group; CI and the serving image do not install it.
+
+```bash
+uv sync --dev --group graph                  # Install graphify locally
+uv run graphify update .                     # Build/refresh graphify-out/ from code (AST only, no LLM, no network)
+uv run graphify query "<question>"           # BFS traversal over graphify-out/graph.json
+uv run graphify explain "VectorStore"        # A node and its neighbours
+uv run graphify affected "<symbol>"          # What depends on a symbol
+```
+
+Obsidian vault and agent access (both local, opt-in):
+
+```bash
+uv run --group graph python scripts/graphify_sync.py                  # Refresh graph + Obsidian vault in graphify-out/obsidian
+uv run --group graph python scripts/graphify_sync.py --install-hooks  # Auto-refresh after commit/merge/checkout (local .git/hooks only)
+uv run --group graph python scripts/graphify_sync.py --uninstall-hooks
+uv run --group graph python -m graphify.serve graphify-out/graph.json  # Read-only stdio MCP server for an agent (e.g. Hermes)
+```
+
+- Use only the local `graphify update` path. Do not run `graphify extract`, `label`, `add`, `clone`, or the assistant `/graphify` skill's semantic step on this repository without explicit approval: they send content to an LLM backend or fetch external URLs.
+- `.graphifyignore` keeps `seed_data/`, quality output and environment files out of the graph. Never widen its scope to corpus artifacts, bank documents or secrets.
+- `graphify-out/` (including the `obsidian/` vault) is git-ignored local output. Never commit it or point the export at `docs/` or another tracked directory.
+- The only approved automation is `scripts/graphify_sync.py`: it strips LLM provider keys from the child environment and its hooks add a marked block without overwriting existing hooks. Do not run `graphify hook install`, `graphify install`, or `graphify <platform> install` (including `hermes install`): they rewrite `AGENTS.md` and install skills that run the LLM extraction step.
+- Agents connect through the read-only `graphify.serve` MCP server, configured on the owner's machine, not in this repository. Its answers (code symbols, comments, doc headings) go to whatever model that agent uses, so connect an agent only with the owner's explicit decision about that model. Its `list_prs`/`triage_prs`/`get_pr_impact` tools query GitHub and are not needed for code navigation.
+- The graph is a navigation lead, not authority. It goes stale as code changes; confirm every conclusion against the source, callers and tests, and refresh it with `graphify update .` after large changes.
+
 ## Review standard
 
 A change is ready when its behavior, failure mode, verification evidence, and deployment/data impact are clear to someone who did not author it. Green tests are necessary evidence, but they do not replace source review, legal validation, or environment-specific acceptance where those are required.
