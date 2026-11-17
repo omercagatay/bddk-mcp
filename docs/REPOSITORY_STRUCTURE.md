@@ -26,7 +26,8 @@ The root is reserved for project entry points and tools that conventionally live
 | `pyproject.toml`, `uv.lock`, `MANIFEST.in` | Python metadata, dependency lock, and distribution policy. |
 | `server.py` | Compatibility shim for `python server.py` and `mcp run server.py`; implementation belongs under `bddk_mcp/`. |
 | `Dockerfile`, `docker-compose.yml` | Container build (downloads the embedding model and runs `bddk-mcp build`, so the image carries the corpus file) and the single-service local Compose topology. |
-| `railway.toml` | Railway development/preview deployment manifest (not a bank path). |
+| `.railway/railway.ts` (`package.json`, `package-lock.json`) | Railway development/preview service configuration as Infrastructure as Code (not a bank path); the npm package is only the authoring dependency of that file, not part of the Python package or the image. |
+| `railway.toml` | The earlier Railway manifest (Config as Code); Railway stops reading it on 2026-12-01. It stays until the IaC file has been applied to the service, then it is removed. |
 | `.env.example`, `.mcp.json` | Sanitized local configuration examples. |
 
 Do not place implementation modules, generated reports, scratch files, one-off plans, or environment-specific secrets in the repository root.

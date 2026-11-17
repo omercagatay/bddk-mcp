@@ -57,3 +57,6 @@ graphify-out/
 
 # Built corpus file (bddk-mcp build); seed_data/ is the reviewed source
 corpus/
+
+# Authoring dependency of .railway/railway.ts (installed with npm install in .railway/)
+.railway/node_modules/
