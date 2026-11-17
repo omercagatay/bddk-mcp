@@ -83,7 +83,10 @@ Yönerge dosyaları (`/doctor prompt-audit`, hedef: oturumun modeli):
   burada kaldı.
 - Sahibin kararları kurallara yazıldı. Yalnızca depoyu bakan Claude Code ajanı için
   (`CLAUDE.md`, "Owner's mandate"; `AGENTS.md`'deki genel kurallar diğer ajanlar
-  için aynen duruyor): tasarım kararları ve yerel dallardaki commit'ler ajanda;
+  için aynen duruyor): neyin yapılacağına ve "bitti"nin ne olduğuna sahip karar verir;
+  müfettişin gördüğünü değiştiren her şey (sıralama, uyarı metinleri, araç çıktıları, corpus
+  içeriği) buna dahildir ve uygulanmadan önce sahibe sunulur. Nasıl yapılacağı (kod
+  yapısı, testler, araçlar, CI) ve yerel dallardaki commit'ler ajanda;
   `git push`, merge, deploy, corpus ve `seed_data/` değişikliği, şema değişikliği ve
   yıkıcı işlemler için açık onay şart ve bir onay sonrakine taşınmaz. Tek istisna
   `dependabot[bot]` PR'larının merge'i: yalnızca sürüm sabitlemelerini değiştiren ve her
