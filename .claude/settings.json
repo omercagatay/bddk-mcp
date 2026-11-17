@@ -23,7 +23,11 @@
       "Bash(uv run pytest *--basetemp*)",
       "PowerShell(uv run pytest *--basetemp*)",
       "Bash(uv run pytest *--pastebin*)",
-      "PowerShell(uv run pytest *--pastebin*)"
+      "PowerShell(uv run pytest *--pastebin*)",
+      "Bash(uv run pytest *--junitxml*)",
+      "PowerShell(uv run pytest *--junitxml*)",
+      "Bash(uv run pytest *@*)",
+      "PowerShell(uv run pytest *@*)"
     ]
   },
   "hooks": {

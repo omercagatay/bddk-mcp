@@ -53,15 +53,25 @@ def test_a_ruff_module_beside_the_edited_file_is_not_executed(tmp_path):
 
 def test_permission_rules_stay_narrow():
     permissions = json.loads(SETTINGS.read_text(encoding="utf-8"))["permissions"]
-    shell_rules = [rule for rule in permissions["allow"] if rule.startswith(("Bash(", "PowerShell("))]
-    # No shell rule ends in a wildcard right after the program name (`railway *`, `uv *`), no rule lets ruff rewrite
-    # files, and Railway is read-only: deploying, running commands and applying configuration always prompt.
-    assert not [rule for rule in shell_rules if re.fullmatch(r"\w+\((\w+) \*\)", rule)]
-    assert not [rule for rule in shell_rules if "ruff" in rule and "*" in rule]
-    railway = [rule for rule in shell_rules if "railway" in rule]
-    assert railway and all(re.search(r"railway (deployment list|logs|status|whoami|config plan) ", r) for r in railway)
-    for flag in ("--basetemp", "--pastebin"):
-        assert any(flag in rule for rule in permissions["deny"]), flag
+    # The exact reviewed list: a new or wider entry is a reviewed change of this test, not only of the settings file.
+    # Shell rules run the repository's own checks and read Railway's state; deploying, `railway run` and applying
+    # configuration from a shell always prompt, and ruff is allowed only in the forms that write nothing.
+    checks = [
+        "uv run pytest tests/*",
+        "uv run ruff check .",
+        "uv run ruff format --check .",
+        "uv run python scripts/check_repository_hygiene.py",
+        "uv lock --check",
+    ]
+    railway = ["deployment list", "logs", "status", "whoami", "config plan"]
+    assert sorted(permissions["allow"]) == sorted(
+        [f"Bash(railway {command} *)" for command in railway]
+        + ["mcp__railway"]
+        + [f"{tool}({command})" for command in checks for tool in ("Bash", "PowerShell")]
+    )
+    for flag in ("--basetemp", "--pastebin", "--junitxml", "@"):
+        for tool in ("Bash", "PowerShell"):
+            assert f"{tool}(uv run pytest *{flag}*)" in permissions["deny"], (tool, flag)
 
 
 @pytest.mark.parametrize("stdin", ["", "not json", "[]", '{"tool_input": {}}', '{"tool_input": {"file_path": null}}'])

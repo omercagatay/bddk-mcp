@@ -86,10 +86,13 @@ Yönerge dosyaları (`/doctor prompt-audit`, hedef: oturumun modeli):
   için aynen duruyor): tasarım kararları ve yerel dallardaki commit'ler ajanda;
   `git push`, merge, deploy, corpus ve `seed_data/` değişikliği, şema değişikliği ve
   yıkıcı işlemler için açık onay şart ve bir onay sonrakine taşınmaz. Tek istisna
-  `dependabot[bot]` PR'larının merge'i, sınırları, embedding paketleri için ek
-  ölçüm şartı ve "önce sor" listesiyle. En üst model katmanı, müfettişin
-  dayanabileceği işlerin bağımsız ikinci incelemesi için kullanılabilir, aynı anda
-  bir ajan.
+  `dependabot[bot]` PR'larının merge'i: yalnızca sürüm sabitlemelerini değiştiren ve her
+  commit'i Dependabot'a ait PR'lar; embedding paketlerindeki her değişiklik, ana
+  sürüm atlamaları ve denetim setinde değişen bir sonuç "önce sor" listesinde. Bu
+  yetki alt ajanlara geçmez. Kaynak eklemek, outbound allowlist'i genişletmek ve
+  kaldırılmış bir bileşeni geri getirmek tasarım kararı sayılmaz, sahibin kararıdır.
+  En üst model katmanı, müfettişin dayanabileceği işlerin bağımsız ikinci incelemesi
+  için kullanılabilir, aynı anda bir ajan.
 - `CLAUDE.md`: önce `@AGENTS.md`, altında Claude Code'a özel kurallar; danışman
   model adıyla değil, sahibin ayarıyla tanımlanır.
 - Bu değişiklik birleştirilmeden önce en üst modelde bağımsız incelendi; inceleme

@@ -125,6 +125,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     lines = [line for q, found, results in rows if (line := difference(q, found, "real_model", results))]
     found_count = sum(found for _, found, _ in rows)
+    ungated = [q["id"] for q in questions if q.get("platform_dependent")]
     recorded = sum(q["real_model"] == "found" for q in questions)
     if args.json:
         print(
@@ -134,6 +135,7 @@ def main(argv: list[str] | None = None) -> int:
                     "recorded_found": recorded,
                     "questions": len(rows),
                     "differences": lines,
+                    "not_gated": ungated,
                     "outcomes": {q["id"]: "found" if found else "missed" for q, found, _ in rows},
                 },
                 ensure_ascii=False,
@@ -143,6 +145,8 @@ def main(argv: list[str] | None = None) -> int:
     else:
         for line in lines:
             print(line)
+        if ungated:
+            print(f"not gated (platform_dependent): {', '.join(ungated)}")
         print(
             f"section search audit (real model): {found_count} of {len(rows)} found, recorded {recorded}; "
             f"{len(lines)} differ{'s' if len(lines) == 1 else ''}"

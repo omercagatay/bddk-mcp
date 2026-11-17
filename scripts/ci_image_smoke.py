@@ -71,6 +71,8 @@ async def run_smoke(base_url: str) -> None:
                     lines.append(line)
             recorded = sum(q["real_model"] == "found" for q in questions)
             print(f"section search audit: {found_count} of {len(questions)} found, recorded {recorded}")
+            if ungated := [q["id"] for q in questions if q.get("platform_dependent")]:
+                print(f"not gated (platform_dependent): {', '.join(ungated)}")
             if lines:
                 raise SmokeFailure("section search audit differs from the recorded outcomes:\n" + "\n".join(lines))
 

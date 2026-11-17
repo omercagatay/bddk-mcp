@@ -62,7 +62,7 @@ def audit(tmp_path_factory):
 def _case(q: dict):
     marks = []
     if q.get("platform_dependent"):
-        marks.append(pytest.mark.xfail(strict=False, reason=f"platform dependent: {q['note']}"))
+        marks.append(pytest.mark.xfail(strict=False, raises=AssertionError, reason=f"platform dependent: {q['note']}"))
     elif q["lexical"] == "missed":
         marks.append(pytest.mark.xfail(strict=True, raises=AssertionError, reason=f"recorded missed: {q['query']}"))
     return pytest.param(q, id=q["id"], marks=marks)
@@ -80,6 +80,9 @@ def test_audit_data_is_well_formed(audit):
     assert {"authors", "criterion", "measurements"} <= data["header"].keys()
     assert len({q["id"] for q in questions}) == len(questions)
     assert [q["id"] for q in questions if q.get("debatable_gold")] == ["A03"]
+    # Marking a question platform_dependent takes it out of both gates: the ids are pinned here, so ungating one
+    # is a reviewed change of this test and not only of the data file.
+    assert [q["id"] for q in questions if q.get("platform_dependent")] == []
     for q in questions:
         outcomes = (q["real_model"], q["lexical"])
         if q["category"] == "absent":
